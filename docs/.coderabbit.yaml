@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: true
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "docs/*"
+      instructions: |
+        Review the following markdown files. Ensure that:
+        - The text adheres to best practices associated with markdown.
+        - The text is written in a professional, technical tone.
+        - The text is written in a more technical tone. Don't use flowery expressions.
+        - The text is written in a more technical tone. Don't use flowery expressions.
+        - Maintain a consistent, natural voice.
+        - Use active voice and contractions. Use passive voice sparingly and only when it better conveys the intended meaning.
+        - Use "NVIDIA" instead of "we".
+chat:
+  auto_reply: true

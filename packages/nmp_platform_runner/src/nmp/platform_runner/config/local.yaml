@@ -1,0 +1,54 @@
+platform:
+  runtime: "docker"
+  base_url: "http://0.0.0.0:8080"
+
+service: {}
+
+auth:
+  enabled: false
+  policy_decision_point_provider: embedded
+  policy_decision_point_base_url: "http://localhost:8080"
+  policy_data_refresh_interval: 2
+  bundle_cache_seconds: 0
+  admin_email: "admin@example.com"
+
+entities: {}
+
+jobs:
+  executors:
+    - provider: subprocess
+      profile: default
+      backend: subprocess
+      config:
+        working_directory: /tmp/nmp-subprocess-jobs
+        cleanup_completed_jobs_immediately: false
+        ttl_seconds_before_active: 60
+        ttl_seconds_active: 3600
+        ttl_seconds_after_finished: 300
+  executor_defaults:
+    docker:
+      cleanup_completed_jobs_immediately: false
+      ttl_seconds_before_active: 60
+      ttl_seconds_active: 3600
+      ttl_seconds_after_finished: 300
+    subprocess:
+      working_directory: /tmp/nmp-subprocess-jobs
+      cleanup_completed_jobs_immediately: false
+      ttl_seconds_before_active: 60
+      ttl_seconds_active: 3600
+      ttl_seconds_after_finished: 300
+
+models:
+  controller:
+    interval_seconds: 5
+    model_deployment_garbage_collection_ttl_seconds: 30
+
+inference_gateway: {}
+
+secrets:
+  allow_key_creation: true
+
+files:
+  default_storage_config:
+    type: local
+    path: ~/.local/share/nemo/files

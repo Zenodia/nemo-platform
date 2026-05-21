@@ -1,0 +1,5 @@
+# will be removed shortly
+web/vendor/
+release/
+.agents/skills/
+e2e/

@@ -1,0 +1,83 @@
+[project]
+name = "nmp-guardrails"
+version = "0.0.1"
+description = "NeMo Guardrails Microservice - programmable guardrails for LLM endpoints"
+readme = "README.md"
+authors = [{ name = "NVIDIA", email = "nemoguardrails@nvidia.com" }]
+requires-python = ">=3.11,<3.14"
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+  "Topic :: Software Development",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+  # API server dependencies (for nmp-api/nmp-core containers)
+  # Guardrails has no separate task containers - all deps are API deps
+  "fastapi>=0.109.0",
+  "fsspec>=2024.10.0",
+  "nemoguardrails[tracing]~=0.21.0",
+  "openai>=1.61.0",
+  "opentelemetry-distro>=0.41b0",
+  "opentelemetry-exporter-otlp>=1.22.0",
+  "opentelemetry-instrumentation-fastapi>=0.48b0",
+  "pydantic-settings>=2.2.1",
+  "python-multipart~=0.0.9",
+  "requests>=2.31.0",
+  "uvicorn>=0.32.1",
+  "httpx>=0.27.2",
+  "gunicorn>=23.0.0",
+  "langchain-openai>=1.0.0,<2.0.0",
+  "langchain-nvidia-ai-endpoints>=1.0.0,<2.0.0",
+  "nmp-common",
+  "yara-python==4.5.1",
+  "alembic>=1.10.4,<2.0.0",
+  "opentelemetry-sdk>=1.27.0,<2.0.0",
+  "opentelemetry-instrumentation-requests>=0.48b0",
+  "opentelemetry-instrumentation-httpx>=0.48b0",
+]
+
+[project.scripts]
+guardrails-server = "nmp.guardrails.main:run_standalone"
+
+[tool.pytest.ini_options]
+# testpaths = ["tests"]  # Commented to prevent namespace collision with root pytest
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[tool.uv.sources]
+nmp-common = { workspace = true }
+
+[dependency-groups]
+# No task deps for guardrails - all deps are in main dependencies
+
+dev = [
+  "pre-commit>=3.8.0",
+  "pydantic-settings>=2.6.1",
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov>=6.0.0",
+  "pytest>=8.3.3",
+  "pytest-mock>=3.14.1",
+  "pytest-httpserver>=1.0.0",
+  "nmp-testing",
+  "nmp-platform-seed",
+]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nmp"]

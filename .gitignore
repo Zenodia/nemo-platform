@@ -1,0 +1,154 @@
+AGENTS.local.md
+tmp
+.idea
+.cursor/rules/personal/
+# Local NeMo skill installs created by `nemo setup` / `nemo skills install`.
+# Existing tracked repo-owned skills remain tracked; use `git add -f` for new
+# repo-owned NeMo skills under these paths.
+.agents/skills/nemo-*/
+.cursor/rules/nemo-*/
+CLAUDE.local.md
+**/worktrees/
+**/.nat-worktrees/
+**/.claude/settings.local.json
+**/.claude/scheduled_tasks.lock
+ai/tmp/
+/env
+venv*
+.venv*
+.env*
+!**/env.py
+!packages/data_designer/**/environment.py
+!packages/nemo_data_designer/**/environment.py
+**/node_modules
+# Linter output files
+diff.txt
+
+temp
+__pycache__
+*.pyc
+*.pyo
+.DS_Store
+.cache
+.kubeconform-cache
+.uv-cache
+.coverage*
+coverage.xml
+coverage.json
+integration-coverage*
+integration-report.xml
+.pytest_cache
+.eggs
+*.egg-info
+build
+dist
+.mypy_cache
+.python-version
+.history
+.venv
+.ruff_cache
+report.xml
+e2e-report.xml
+test_db.sqlite
+# E2E merged config files (temporary files created during test runs)
+e2e/configs/.*.merged.yaml
+.minikube-e2e/
+.files_storage/
+.data_designer_assets/
+# Auth policy WASM is built in CI/containers, not checked in
+services/core/auth/src/nmp/core/auth/assets/policy.wasm
+logs/*
+*.log
+*.log.jsonl
+helm/platform/charts/
+helm/platform/Chart.lock
+helm/platform/components/*/Chart.lock
+helm/platform/components/*/charts/*.tgz
+helm/platform-ea/components/*/charts/*.tgz
+helm/platform-ea/charts/
+helm/platform-ea/Chart.lock
+helm/platform-ea/components/*/Chart.lock
+deploy/helm/platform/charts/
+deploy/helm/platform/Chart.lock
+deploy/helm/platform/components/*/Chart.lock
+deploy/helm/platform/components/*/charts/*.tgz
+chart-tmp
+nemo-microservices-helm-chart-*.tgz
+# Visual Studio Code config
+.vscode/
+# PyCharm config
+.idea/
+.scratch/
+# automatically generated folders
+docs/_build/
+docs/_repo/
+docs/pysdk/reference/
+# artifacts from running ./scripts/build_docs.sh
+docs/_build
+docs/conf.py
+!docs/**/_snippets/**/*.log
+docs/**/_snippets/**/*.tgz
+docs/audit/_snippets/output/basic-job-report.jsonl
+openapicheck/
+# third party licenses
+third_party/licenses*ci.jsonl
+# output from datastore localdev
+services/datastore/docker-compose/dev/data/
+# output from jobs-launcher builds
+services/core/jobs/jobs-launcher/jobs-launcher
+
+# Ignore local Jobs service artifacts
+services/core/infrastructure/jobs/jobs.db
+
+# artifacts from running Jupyter notebooks
+.ipynb_checkpoints/
+
+# TLS certs and keys
+*.crt
+*.key
+*.pem
+*.enc
+*.csr
+
+# SDK artifacts
+sdk/openapi_schema_mapping_report.txt
+sdk/python/nemo-platform/uv.lock
+
+# Terraform
+**/.terraform
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+*.plan
+terraform/guardrails/*.tar.gz
+terraform/guardrails/guardrails-tf_v*
+terraform/guardrails/out
+*.executed.ipynb
+
+# nemo-safe-synthesizer local development wheel (built by `make prepare-nss`)
+packages/nemo_safe_synthesizer_wheel/*.whl
+.nss_repo/
+
+exp/
+*-artifacts/
+# this is sometimes used by wandb as a local path.
+wandb/
+# output from unsloth defaults to the local path
+unsloth_compiled_cache/
+
+# Nemtron Personas Datasets staging directory
+services/data-designer/personas/data
+
+# pnpm store (created when using pnpm from repo root or with local store)
+.pnpm-store/
+
+# Local temporary files
+.tmp/
+docker/logs/*
+
+# Linting artifact
+python-sdk-lint/
+site/

@@ -1,0 +1,603 @@
+---
+name: nemo-guardrails
+description: >
+  NeMo guardrails CLI reference for creating guardrail configs and applying them
+  to chat completions through an IGW VirtualModel. Covers config CRUD, the
+  standalone `/checks` endpoint for verifying a config, and the
+  `nemo-guardrails` inference middleware plugin attached via VirtualModel
+  MiddlewareCalls. Use when the task involves guardrail configurations, content
+  safety, input/output rails, or `nemo guardrail` / `nemo inference virtual-models` CLI
+  commands for guardrailing inference.
+user-invocable: true
+allowed-tools: Bash, Read, Grep
+---
+
+# NeMo Guardrails CLI Reference
+
+`nemo guardrail` (config CRUD + the `/checks` endpoint) and `nemo inference virtual-models`
+with a `nemo-guardrails` MiddlewareCall both back the same `guardrail_config`
+entity. The `nemo guardrail chat completions create` and `nemo guardrail
+completions create` commands are deprecated; do not use them.
+
+## Environment
+
+- **CLI paths**: `/app/.venv/bin/nemo` and `/app/.venv/bin/nmp` (same binary,
+  two names)
+- **API server**: `http://localhost:8080` (default, no auth needed for local services)
+- **Default workspace**: `default`
+- **Workspace override**: `--workspace <name>` flag, or `NMP_WORKSPACE` env var
+- **Entity ID**: `<workspace>/<model-entity-name>`, e.g.
+  `default/meta-llama-3-70b-instruct`. For backend models behind a provider,
+  use the auto-discovered ID from `served_models[].model_entity_id` (see
+  `inference` skill).
+- **Canned refusal**: when a rail blocks, the response content is exactly
+  `"I'm sorry, I can't respond to that."`
+
+### Mock model
+
+`default/mock-llm` is **not** pre-configured platform-wide. In the agentic-use
+test harness it is wired up by `tests/agentic-use/guardrails-content-safety-cli/environment/setup-mock.py`:
+
+- IGW runs in mock-provider mode (config `mock_provider_prefix="igw-mock-"`)
+- A provider named `igw-mock-mock-llm` is registered with a static response map
+  header that always returns `{"role":"assistant","content":"Yes"}`
+- A model entity `default/mock-llm` is created and registered as a served model
+  on that provider
+
+When `default/mock-llm` is used as a self-check rail model, the always-`Yes`
+response causes **all content** to be blocked — useful for verifying the rails
+pipeline works end-to-end without hitting a real LLM. If you're outside the
+agentic-use harness and `default/mock-llm` doesn't resolve, you need to set up
+the mock provider yourself or point the rail at a real model.
+
+## Prerequisites
+
+- For **`nemo guardrail check`** alone: just a config and a model entity
+  reachable through IGW (so the rail's self-check call can resolve).
+- For **chat-time guardrailing on a VirtualModel**: a real backend model entity
+  the VirtualModel can proxy to. Use `nemo-secrets` and `inference`
+  skills to register a secret + provider; the `inference` skill is
+  the end-to-end reference for the provider/served-models/auto-discovery flow.
+
+---
+
+## CLI gotchas
+
+- **Use `nemo inference virtual-models` (with hyphen)**, not
+  `nemo inference virtualmodels`.
+- **Names are positional** for `nemo guardrail configs create <name>` and
+  `nemo inference virtual-models create <name>`.
+- **No `nemo inference chat completions create` command exists.** Use
+  `nemo inference gateway model post v1/chat/completions <vm-name>` (matches
+  the `inference` skill).
+- **`--data` (configs) and `--body` / `--models` / `--*-middleware`
+  (VirtualModels) take JSON strings.** Watch shell quoting for embedded
+  backticks/quotes — prefer `--input-file` for large payloads.
+- **`config_type` is always `"guardrail_config"`** in a `MiddlewareCall` for
+  `nemo-guardrails`.
+- **Each middleware list dispatches its own hook independently.** If you want
+  input rails AND output rails, the call must appear in **both**
+  `--request-middleware` AND `--response-middleware`. See `Failure cases`.
+- **The `guardrails` field on a chat-completions request body is options-only
+  on the IGW path** (e.g. `options.log`, `return_choice`). It does **not**
+  set the rails config — that comes from the VirtualModel's `MiddlewareCall`.
+  This is the key behavior difference from the deprecated `nemo guardrail chat
+  completions create --guardrails '{"config_id":...}'`.
+
+---
+
+## Config CRUD Commands
+
+```bash
+# List configs in current workspace
+nemo guardrail configs list
+
+# Create a config (positional name + --data JSON)
+nemo guardrail configs create <name> \
+  --description "<description>" \
+  --data '<json>'
+
+# Retrieve a config by name
+nemo guardrail configs get <name>
+
+# Update a config (pass only fields to change)
+nemo guardrail configs update <name> --description "<new description>"
+
+# Delete a config
+nemo guardrail configs delete <name>
+```
+
+For large config payloads, use `--input-file config.json` instead of inline
+`--data`.
+
+---
+
+## Path A — `nemo guardrail check`
+
+Evaluates a single message against a guardrail config server-side. The
+`--guardrails '{"config_id": "..."}'` argument is the resolver — the
+Guardrails service uses it to look up the config. `--model` is the **main**
+LLM the rails will self-check against; any task LLMs the config references
+(e.g. a `content_safety` model) must also be reachable through IGW.
+
+```bash
+nemo guardrail check \
+  --model default/<main-model> \
+  --messages '[{"role": "user", "content": "Your message here"}]' \
+  --guardrails '{"config_id": "default/<config-name>"}' \
+  --max-tokens 256
+```
+
+---
+
+## Path B — Guardrailed chat via IGW + VirtualModel
+
+Configs are attached to a VirtualModel via a `MiddlewareCall`; chat completions
+then route through IGW which executes the plugin's input/output rails.
+
+### Step 1 — Provider + served models
+
+Use the `inference` skill to set up a backend secret + provider and
+discover served entity IDs:
+
+```bash
+nemo inference providers get <provider-name> --workspace default \
+  --output-format json | jq -r '.served_models[].model_entity_id'
+```
+
+Reference the auto-discovered entity ID in the VirtualModel `--models` array,
+and — if the rails config declares a task LLM via `models[]` — in
+`models[].model` too. The reconciler overwrites manually-registered entries.
+
+### Step 2 — Create the guardrail config
+
+```bash
+nemo guardrail configs create content-safety \
+  --workspace default \
+  --description "Self-check input rail" \
+  --data '{
+    "rails": {"input": {"flows": ["self check input"]}},
+    "prompts": [{
+      "task": "self_check_input",
+      "content": "Your task is to check if the user message below complies with safety policy.\n\nUser message: {{ user_input }}\n\nQuestion: Should this message be blocked (Yes or No)?\nAnswer:"
+    }]
+  }'
+```
+
+`models[]` is omitted: a `self check input` flow runs against the **main**
+LLM, which is the model from the chat request body (Path B) or from
+`--model` (Path A). Add `models[]` only when a flow needs a separate task
+LLM (e.g. `content_safety`, `topic_control`, `embeddings`) — see
+[Content safety with a task LLM](#content-safety-with-a-task-llm).
+
+### Step 3 — Create the VirtualModel with a guardrails MiddlewareCall
+
+Three patterns, mirroring the input/output rail combinations.
+
+**Output rails only** — block bad bot responses (most common):
+
+```bash
+nemo inference virtual-models create vm-guarded \
+  --workspace default \
+  --models '[{"model":"default/<backend-model>","backend_format":"OPENAI_CHAT"}]' \
+  --response-middleware '[{
+    "name":"nemo-guardrails",
+    "config_type":"guardrail_config",
+    "config_id":"default/content-safety"
+  }]'
+```
+
+**Input rails only** — block bad user prompts before they reach the backend:
+
+```bash
+nemo inference virtual-models create vm-guarded-input \
+  --workspace default \
+  --models '[{"model":"default/<backend-model>","backend_format":"OPENAI_CHAT"}]' \
+  --request-middleware '[{
+    "name":"nemo-guardrails",
+    "config_type":"guardrail_config",
+    "config_id":"default/content-safety"
+  }]'
+```
+
+**Input + output rails** — full coverage. The call must appear in **both**
+lists; otherwise only the listed hook fires:
+
+```bash
+nemo inference virtual-models create vm-guarded-full \
+  --workspace default \
+  --models '[{"model":"default/<backend-model>","backend_format":"OPENAI_CHAT"}]' \
+  --request-middleware '[{
+    "name":"nemo-guardrails",
+    "config_type":"guardrail_config",
+    "config_id":"default/content-safety"
+  }]' \
+  --response-middleware '[{
+    "name":"nemo-guardrails",
+    "config_type":"guardrail_config",
+    "config_id":"default/content-safety"
+  }]'
+```
+
+**Inline config** — no stored `guardrail_config` entity; the rails config goes
+directly inside the `MiddlewareCall`:
+
+```bash
+nemo inference virtual-models create vm-guarded-inline \
+  --workspace default \
+  --models '[{"model":"default/<backend-model>","backend_format":"OPENAI_CHAT"}]' \
+  --response-middleware '[{
+    "name":"nemo-guardrails",
+    "config_type":"guardrail_config",
+    "config":{"models":[...],"rails":{...},"prompts":[...]}
+  }]'
+```
+
+The `--models` array is required and uses the backend model entity ID, not the
+VirtualModel name (the guardrails plugin doesn't route — the VirtualModel's
+`default_model_entity` / `--models` decide the upstream backend).
+
+### Step 4 — Make a guardrailed chat call
+
+```bash
+nemo inference gateway model post v1/chat/completions vm-guarded \
+  --workspace default \
+  --body '{
+    "model":"default/<backend-model>",
+    "messages":[{"role":"user","content":"Hello"}],
+    "max_tokens":256
+  }'
+```
+
+`body["model"]` is the backend entity ID and acts as the rails' **main** LLM
+— the guardrails plugin filters but doesn't rewrite the model field, and
+self-check flows call this model. The VirtualModel name comes from the URL
+path.
+
+For streaming, add `"stream": true` to the body — the plugin wraps the response
+iterator and runs output rails per chunk if `rails.output.streaming.chunk_size`
+is set in the config.
+
+---
+
+## MiddlewareCall JSON Reference
+
+`MiddlewareCall` is defined in
+[packages/nemo_platform_plugin/src/nemo_platform_plugin/inference_middleware.py](packages/nemo_platform_plugin/src/nemo_platform_plugin/inference_middleware.py).
+For `nemo-guardrails`, the contract is:
+
+```json
+{
+  "name": "nemo-guardrails",
+  "config_type": "guardrail_config",
+  "config_id": "<workspace>/<config-name>"
+}
+```
+
+Or, with an inline rails config:
+
+```json
+{
+  "name": "nemo-guardrails",
+  "config_type": "guardrail_config",
+  "config": {"models": [...], "rails": {...}, "prompts": [...]}
+}
+```
+
+`config_type` is always the string `"guardrail_config"`. Use `config_id` for
+stored entities (recommended — easier to update and reuse) and `config` for
+ephemeral inline configs.
+
+---
+
+## Config JSON Structure
+
+The **main** LLM is always the model from the chat request body (Path B) or
+the `--model` flag (Path A) — both Path A and Path B ignore any
+`models[type=main]` entry on the config and use the request's model instead.
+Self-check rails (`self check input`/`self check output`) call the main LLM,
+so they don't need a `models[]` entry at all. Add `models[]` only for
+**task LLMs** (`content_safety`, `topic_control`, `jailbreak_detection`,
+`embeddings`, `vision_rails`, etc.) that flows explicitly reference via `$model=<type>`.
+
+### Minimal config (self-check input rail only)
+
+```json
+{
+  "rails": {
+    "input": {
+      "flows": ["self check input"]
+    }
+  },
+  "prompts": [
+    {
+      "task": "self_check_input",
+      "content": "Your task is to check if the user message below complies with safety policy.\n\nUser message: {{ user_input }}\n\nQuestion: Should this message be blocked (Yes or No)?\nAnswer:"
+    }
+  ]
+}
+```
+
+### Full config (self-check input + output rails)
+
+```json
+{
+  "rails": {
+    "input":  {"flows": ["self check input"]},
+    "output": {"flows": ["self check output"]}
+  },
+  "prompts": [
+    {
+      "task": "self_check_input",
+      "content": "Your task is to check if the user message below should be blocked.\n\nUser message: {{ user_input }}\n\nQuestion: Should the user message be blocked (Yes or No)?\nAnswer:"
+    },
+    {
+      "task": "self_check_output",
+      "content": "Your task is to check if the bot response below should be blocked.\n\nBot response: {{ bot_response }}\n\nQuestion: Should the message be blocked (Yes or No)?\nAnswer:"
+    }
+  ],
+  "instructions": [
+    {
+      "type": "general",
+      "content": "Below is a conversation between a user and a bot."
+    }
+  ]
+}
+```
+
+### Content safety with a task LLM
+
+Uses a dedicated content-safety classifier (e.g.
+`default/Nemotron-3-Content-Safety`) to gate both directions. The
+`content_safety` flows reference the task LLM via `$model=content_safety`,
+so the `models[]` entry **is** required here:
+
+```json
+{
+  "models": [
+    {
+      "type": "content_safety",
+      "engine": "nim",
+      "model": "default/Nemotron-3-Content-Safety"
+    }
+  ],
+  "rails": {
+    "input":  {"flows": ["content safety check input $model=content_safety"]},
+    "output": {"flows": ["content safety check output $model=content_safety"]}
+  },
+  "prompts": [
+    {
+      "task": "content_safety_check_input $model=content_safety",
+      "content": "Task: Check if there is unsafe content in the user message in the below conversation according to the safety policy.\n\n<BEGIN CONVERSATION>\n\nuser: {{ user_input }}\n\n<END CONVERSATION>\n\nProvide your safety assessment as JSON: {\"User Safety\": \"safe\" or \"unsafe\", \"Safety Categories\": comma-separated list, omit if all safe}.\n\nOutput JSON:",
+      "output_parser": "nemoguard_parse_prompt_safety",
+      "max_tokens": 100
+    },
+    {
+      "task": "content_safety_check_output $model=content_safety",
+      "content": "Task: Check if there is unsafe content in the agent response in the below conversation according to the safety policy.\n\n<BEGIN CONVERSATION>\n\nuser: {{ user_input }}\n\nresponse: agent: {{ bot_response }}\n\n<END CONVERSATION>\n\nProvide your safety assessment as JSON: {\"Response Safety\": \"safe\" or \"unsafe\", \"Safety Categories\": comma-separated list, omit if all safe}.\n\nOutput JSON:",
+      "output_parser": "nemoguard_parse_response_safety",
+      "max_tokens": 100
+    }
+  ]
+}
+```
+
+The full production prompt taxonomy lives in
+[docs/guardrails/tutorials/content-safety.md](docs/guardrails/tutorials/content-safety.md);
+the snippet above is shortened for readability.
+
+### Streaming output rails
+
+```json
+"output": {
+  "flows": ["self check output"],
+  "streaming": {"enabled": true, "chunk_size": 200}
+}
+```
+
+`streaming` is an `OutputRailsStreamingConfig` object, not a boolean. Other
+fields: `enabled` (default `true`), `context_size` (default `50`),
+`stream_first` (default `true`). When unset, the plugin runs output rails on
+the assembled response only.
+
+### Field reference
+
+**models[]** (optional — only for task LLMs)
+- `type` — task to use the model for. Examples: `"main"`, `"content_safety"`, `"topic_control"`,
+  `"jailbreak_detection"`, `"embeddings"`, `"vision_rails"`. Entries with `type: "main"` are
+  ignored — omit them.
+- `engine` — free-form string (commonly `"nim"`); the schema is permissive.
+- `model` — `<workspace>/<model-entity-name>`. Must be reachable through IGW;
+  use auto-discovered entity IDs from
+  `nemo inference providers get ... | jq '.served_models[].model_entity_id'`.
+
+Flows reference task LLMs by appending `$model=<type>` (e.g.
+`content safety check input $model=content_safety`). Self-check flows
+(`self check input`/`self check output`) run against the main LLM and need
+no `models[]` entry.
+
+**rails**
+- `rails.input.flows`: enables input rails (e.g. `["self check input"]`)
+- `rails.output.flows`: enables output rails (e.g. `["self check output"]`)
+- `rails.output.streaming`: optional `{"chunk_size": N}` for streaming output checks
+
+**prompts[]**
+- `task`: the task this prompt template is applied to. Common values:
+  `"self_check_input"`, `"self_check_output"`,
+  `"content_safety_check_input $model=content_safety"`,
+  `"content_safety_check_output $model=content_safety"`. The `$model=<type>`
+  suffix binds the prompt to a task LLM declared in `models[]`.
+- `content`: prompt template. Use `{{ user_input }}` to embed the user
+  message and `{{ bot_response }}` to embed the model's response
+  (`{{ user_input }}` is available in both input and output rail prompts;
+  `{{ bot_response }}` is only meaningful in output rail prompts). For
+  self-check tasks, end with a "Yes or No" question — the model answers
+  `Yes` to block, `No` to allow. Content-safety tasks instead emit a JSON
+  verdict consumed by `output_parser`.
+- `output_parser`: optional parser name. Use this when the model returns
+  a safety verdict that must be converted to an allow/block decision.
+  `is_content_safe` is the generic parser for simple `safe` / `unsafe` or
+  `yes` / `no` outputs. For content-safety checks using NemoGuard models, use
+  `"nemoguard_parse_prompt_safety"` for the input rail and
+  `"nemoguard_parse_response_safety"` for the output rail.
+  For content-safety checks using Nemotron reasoning models, use
+  `"nemotron_reasoning_parse_prompt_safety"` for the input rail and
+  `"nemotron_reasoning_parse_response_safety"` for the output rail.
+
+**instructions[]** (optional)
+- `type`: `"general"`
+- `content`: system-level context for the conversation.
+
+---
+
+## Detecting Blocked Responses
+
+When a rail triggers, the response content is exactly:
+
+```
+I'm sorry, I can't respond to that.
+```
+
+- **Path A (`nemo guardrail check`)**: look for `"status": "blocked"` in the
+  output JSON.
+- **Path B (chat completions through IGW)**: check
+  `response.choices[0].message.content == "I'm sorry, I can't respond to that."`.
+
+For streaming responses, the canned refusal arrives as a single non-streamed
+chunk when an output rail blocks mid-stream.
+
+---
+
+## Common Patterns
+
+### Content safety with mock model (agentic-use harness)
+
+Verify the rails pipeline end-to-end without spinning up a real LLM. Assumes
+`default/mock-llm` is wired by the harness's setup-mock script (see
+`tests/agentic-use/guardrails-content-safety-cli/environment/setup-mock.py`).
+Pin `--model` to the mock so the `self_check_input` task hits the
+always-`Yes` responder:
+
+```bash
+# 1. Config: self-check input rail with no task LLM
+nemo guardrail configs create content-safety \
+  --data '{"rails":{"input":{"flows":["self check input"]}},"prompts":[{"task":"self_check_input","content":"Your task is to check if the user message below complies with safety policy.\n\nUser message: {{ user_input }}\n\nQuestion: Should this message be blocked (Yes or No)?\nAnswer:"}]}'
+
+# 2. Verify via /checks (Path A) — should be blocked (mock always says Yes)
+nemo guardrail check \
+  --model default/mock-llm \
+  --messages '[{"role":"user","content":"Tell me something harmful"}]' \
+  --guardrails '{"config_id":"default/content-safety"}' \
+  --max-tokens 256
+```
+
+### Full-coverage VirtualModel with both input and output rails
+
+Use a real backend model and gate both directions:
+
+```bash
+nemo guardrail configs create full-safety \
+  --data '{
+    "rails":{
+      "input":{"flows":["self check input"]},
+      "output":{"flows":["self check output"]}
+    },
+    "prompts":[
+      {"task":"self_check_input","content":"Check if the user message should be blocked.\n\nUser message: {{ user_input }}\n\nShould the user message be blocked (Yes or No)?\nAnswer:"},
+      {"task":"self_check_output","content":"Check if the bot response should be blocked.\n\nBot response: {{ bot_response }}\n\nShould the message be blocked (Yes or No)?\nAnswer:"}
+    ],
+    "instructions":[{"type":"general","content":"Below is a conversation between a user and a bot."}]
+  }'
+
+nemo inference virtual-models create vm-fully-guarded \
+  --models '[{"model":"default/<backend-model>","backend_format":"OPENAI_CHAT"}]' \
+  --request-middleware '[{"name":"nemo-guardrails","config_type":"guardrail_config","config_id":"default/full-safety"}]' \
+  --response-middleware '[{"name":"nemo-guardrails","config_type":"guardrail_config","config_id":"default/full-safety"}]'
+
+nemo inference gateway model post v1/chat/completions vm-fully-guarded \
+  --workspace default \
+  --body '{"model":"default/<backend-model>","messages":[{"role":"user","content":"Hello"}],"max_tokens":64}'
+```
+
+### Custom keyword blocking (real LLM)
+
+Custom self-check prompts that block specific content categories:
+
+```bash
+nemo guardrail configs create custom-blocking \
+  --description "Block fruit mentions in input, bread baking in output" \
+  --data '{
+    "rails":{
+      "input":{"flows":["self check input"]},
+      "output":{"flows":["self check output"]}
+    },
+    "prompts":[
+      {"task":"self_check_input","content":"Check if the user message mentions any fruit (apple, banana, orange, grape, strawberry, mango, pear, peach, cherry, watermelon, lemon, lime, etc.).\n\nUser message: {{ user_input }}\n\nQuestion: Should the user message be blocked (Yes or No)?\nAnswer:"},
+      {"task":"self_check_output","content":"Check if the bot response contains information about baking bread.\n\nBot response: {{ bot_response }}\n\nQuestion: Should the message be blocked (Yes or No)?\nAnswer:"}
+    ],
+    "instructions":[{"type":"general","content":"Below is a conversation between a user and a bot."}]
+  }'
+```
+
+Then verify via `nemo guardrail check`, or attach to a VirtualModel as in the
+full-coverage pattern above.
+
+---
+
+## Failure cases
+
+### Plugin in only one of `--request-middleware` / `--response-middleware`
+
+Each list dispatches its own hook independently
+(`execute_request_middleware` ↔ `process_request`, `execute_response_middleware`
+↔ `process_response` — see
+[services/core/inference-gateway/src/nmp/core/inference_gateway/api/middleware_registry.py](services/core/inference-gateway/src/nmp/core/inference_gateway/api/middleware_registry.py)).
+
+If your config has both `rails.input.flows` and `rails.output.flows` but you
+attach the call to only one list, the unlisted side will silently no-op. Symptom:
+prompts pass through unblocked, or responses pass through unblocked, even
+though the config looks complete.
+
+Fix: attach the same call to both `--request-middleware` and
+`--response-middleware`.
+
+### Putting `guardrails` field in the chat body expecting it to set the config
+
+On the **IGW VirtualModel path**, the request body's `guardrails` dict is
+strictly an options envelope. Supported fields are `options.log` and
+`return_choice`. The rails config is resolved from the VirtualModel's
+`MiddlewareCall`, not from the request body.
+
+Unsupported fields are rejected with a `422` validation error. This includes
+`guardrails.config`, `guardrails.config_id`, `guardrails.options.rails`,
+`guardrails.options.llm_params`, `guardrails.options.llm_output`, and
+`guardrails.options.output_vars`.
+
+Symptom: you set `--body '{"guardrails":{"config_id":"default/foo"},...}'`
+expecting `default/foo` to be applied, but the request fails validation.
+
+Fix: attach the config to the VirtualModel via `--request-middleware` /
+`--response-middleware` instead of trying to override per-request. Use
+`guardrails.options.log` only for diagnostic log fields and `return_choice`
+only for response formatting.
+
+### Task LLM (or main model) not addressable
+
+If `RailsConfig.models[].model` references an entity that isn't in
+`served_models`, the rails will fail when they try to call that task LLM
+through IGW. Same applies to the main LLM (the request body's model on Path
+B, `--model` on Path A) — if it isn't reachable through IGW, self-check
+flows fail. Both usually show up as a 404 or timeout from the rails
+subsystem during the first request.
+
+Fix: use auto-discovered entity IDs (from
+`nemo inference providers get ... | jq '.served_models[].model_entity_id'`)
+both for the request/`--model` and for any task LLMs in `models[]`. See
+`inference` skill for the auto-discovery semantics.
+
+### VirtualModel 404 after working briefly
+
+The provider reconciler re-syncs `served_models` from upstream auto-discovery
+every few seconds and drops manually-registered entries. See
+`inference` skill's "Reconciler-induced 404" failure case — the same
+fix applies (use auto-discovered entity IDs in `--models`).

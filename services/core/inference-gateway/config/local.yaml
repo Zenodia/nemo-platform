@@ -1,0 +1,17 @@
+# Common service configuration. Use defaults.
+service: {}
+
+inference_gateway:
+  debug_model_providers: # disable calls to Models service
+    - workspace: default
+      name: tot
+      host_url: https://mock-nim.example.invalid
+      served_models: []
+    - workspace: default
+      name: ollama
+      host_url: http://localhost:11434
+      served_models:
+        - served_model_name: gpt-oss:latest
+          model_entity_id: ollama/gpt-oss
+        - served_model_name: llama3.2:latest
+          model_entity_id: ollama/llama3-2

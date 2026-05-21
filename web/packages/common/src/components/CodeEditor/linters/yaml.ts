@@ -1,0 +1,28 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Diagnostic, linter } from '@codemirror/lint';
+import YAML, { YAMLParseError } from 'yaml';
+
+export const yamlLinter = linter((view) => {
+  const diagnostics: Diagnostic[] = [];
+
+  try {
+    YAML.parse(view.state.doc.toString());
+  } catch (error: unknown) {
+    if (error instanceof YAMLParseError) {
+      const loc = error.pos;
+      const from = loc ? loc[0] : 0;
+      const to = loc ? loc[1] : 0;
+      const severity = 'error';
+
+      diagnostics.push({
+        from,
+        to,
+        message: error.message,
+        severity,
+      });
+    }
+  }
+  return diagnostics;
+});

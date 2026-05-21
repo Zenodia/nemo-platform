@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Verify that secret CRUD operations were performed correctly.
+
+Checks:
+- harbor-test-secret was deleted (should not exist)
+- harbor-final-secret exists with correct description
+- Secret values are never exposed in API responses
+"""
+
+import os
+
+import pytest
+from nemo_platform import NeMoPlatform
+
+WORKSPACE = "default"
+
+
+@pytest.fixture
+def client() -> NeMoPlatform:
+    nmp_base_url = os.environ.get("NMP_BASE_URL", "http://localhost:8080")
+    return NeMoPlatform(base_url=nmp_base_url, workspace=WORKSPACE)
+
+
+def test_harbor_test_secret_deleted(client: NeMoPlatform) -> None:
+    """Test that harbor-test-secret was deleted after CRUD operations."""
+    response = client.secrets.list()
+    secret_names = [s.name for s in response.data]
+    assert "harbor-test-secret" not in secret_names, (
+        f"Secret 'harbor-test-secret' should have been deleted but still exists! Found: {secret_names}"
+    )
+
+
+def test_harbor_final_secret_exists(client: NeMoPlatform) -> None:
+    """Test that harbor-final-secret was created and has correct metadata."""
+    response = client.secrets.retrieve(name="harbor-final-secret")
+    assert response.name == "harbor-final-secret", f"Expected secret name 'harbor-final-secret', got '{response.name}'"
+    assert response.description == "Final secret for verification", (
+        f"Expected description 'Final secret for verification', got '{response.description}'"
+    )
+
+
+def test_secret_value_not_exposed(client: NeMoPlatform) -> None:
+    """Test that secret values are not exposed in list/retrieve responses."""
+    response = client.secrets.retrieve(name="harbor-final-secret")
+    # PlatformSecretResponse should only contain metadata fields, not the secret data.
+    # The actual secret value is only available via client.secrets.access().
+    response_dict = response.model_dump()
+    assert "data" not in response_dict or response_dict.get("data") is None, (
+        "Secret value should not be exposed in retrieve response"
+    )

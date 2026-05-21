@@ -1,0 +1,26 @@
+schema-version = "1.11.0"
+
+
+[install]
+# Python
+python3.pkg-path = "python3"
+uv.pkg-path = "uv"
+uv.version = "~0.9"
+
+# Utilities
+gnutar.pkg-path = "gnutar"
+
+# Tools
+open-policy-agent.pkg-path = "open-policy-agent"
+open-policy-agent.version = "1.8.0"
+open-policy-agent.pkg-group = "tools"
+osv-scanner.pkg-path = "osv-scanner"
+osv-scanner.pkg-group = "tools"
+
+[vars]
+[hook]
+[profile]
+[services]
+[include]
+[build]
+[options]

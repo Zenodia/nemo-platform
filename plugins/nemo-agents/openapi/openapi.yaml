@@ -1,0 +1,1500 @@
+openapi: 3.1.0
+info:
+  title: agents (plugin)
+  version: 0.1.0
+paths:
+  /apis/agents/v2/workspaces/{workspace}/agents:
+    post:
+      tags:
+      - Agents
+      summary: Create Agent
+      description: Create a new agent from a NAT workflow config.
+      operationId: create_agent_apis_agents_v2_workspaces__workspace__agents_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Agents
+      summary: List Agents
+      description: List all agents in the workspace with pagination and filter support.
+      operationId: list_agents_apis_agents_v2_workspaces__workspace__agents_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: -created_at
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NemoListResponse_Agent_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/agents/{name}:
+    get:
+      tags:
+      - Agents
+      summary: Get Agent
+      description: Get a specific agent by name.
+      operationId: get_agent_apis_agents_v2_workspaces__workspace__agents__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Agents
+      summary: Delete Agent
+      description: 'Delete an agent by name.
+
+
+        Returns 409 if any deployments in a live state (pending/starting/running)
+
+        still reference this agent.  Delete or wait for those deployments to finish
+
+        before deleting the agent.'
+      operationId: delete_agent_apis_agents_v2_workspaces__workspace__agents__name__delete
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/deployments:
+    post:
+      tags:
+      - Agent Deployments
+      summary: Create Deployment
+      description: 'Create a new deployment for an existing agent.
+
+
+        The deployment starts in ``pending`` state and is picked up by the
+
+        deployment controller on its next reconcile cycle.'
+      operationId: create_deployment_apis_agents_v2_workspaces__workspace__deployments_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDeploymentRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentDeployment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Agent Deployments
+      summary: List Deployments
+      description: List all deployments in the workspace with pagination and filter
+        support.
+      operationId: list_deployments_apis_agents_v2_workspaces__workspace__deployments_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: -created_at
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NemoListResponse_AgentDeployment_'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/deployments/{name}:
+    get:
+      tags:
+      - Agent Deployments
+      summary: Get Deployment
+      description: Get a deployment by name.
+      operationId: get_deployment_apis_agents_v2_workspaces__workspace__deployments__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentDeployment'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Agent Deployments
+      summary: Delete Deployment
+      description: 'Stop and remove a deployment.
+
+
+        Marks the deployment as ``deleting``.  The controller terminates the
+
+        subprocess and removes the entity on the next reconcile cycle.'
+      operationId: delete_deployment_apis_agents_v2_workspaces__workspace__deployments__name__delete
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate:
+    post:
+      tags:
+      - Agents
+      summary: Create Job
+      operationId: create_job_apis_agents_v2_workspaces__workspace__jobs_evaluate_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluateJobRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateJob'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Agents
+      summary: List Jobs
+      operationId: list_jobs_apis_agents_v2_workspaces__workspace__jobs_evaluate_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          exclusiveMinimum: 0
+          description: Page number.
+          default: 1
+          title: Page
+        description: Page number.
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          exclusiveMinimum: 0
+          description: Page size.
+          default: 10
+          title: Page Size
+        description: Page size.
+      - name: sort
+        in: query
+        required: false
+        schema:
+          allOf:
+          - $ref: '#/components/schemas/EvaluateJobsSortField'
+          description: The field to sort by. To sort in decreasing order, use `-`
+            in front of the field name.
+          default: -created_at
+        description: The field to sort by. To sort in decreasing order, use `-` in
+          front of the field name.
+      - in: query
+        name: filter
+        style: deepObject
+        required: false
+        explode: true
+        schema:
+          $ref: '#/components/schemas/EvaluateJobsListFilter'
+        description: Filter jobs on various criteria.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateJobsPage'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{job}/results/{name}:
+    get:
+      tags:
+      - Agents
+      summary: Get Job Result
+      operationId: get_job_result_apis_agents_v2_workspaces__workspace__jobs_evaluate__job__results__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: job
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformJobResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{job}/results/{name}/download:
+    get:
+      tags:
+      - Agents
+      summary: Download Job Result
+      operationId: download_job_result_apis_agents_v2_workspaces__workspace__jobs_evaluate__job__results__name__download_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: job
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not Found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{name}:
+    get:
+      tags:
+      - Agents
+      summary: Get Job
+      operationId: get_job_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateJob'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Agents
+      summary: Delete Job
+      operationId: delete_job_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__delete
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{name}/cancel:
+    post:
+      tags:
+      - Agents
+      summary: Cancel Job
+      operationId: cancel_job_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__cancel_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluateJob'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{name}/logs:
+    get:
+      tags:
+      - Agents
+      summary: Get Job Logs
+      operationId: get_job_logs_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__logs_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      - name: limit
+        in: query
+        required: false
+        schema:
+          title: Limit
+          type: integer
+      - name: page_cursor
+        in: query
+        required: false
+        schema:
+          title: Page Cursor
+          type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformJobLogPage'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{name}/results:
+    get:
+      tags:
+      - Agents
+      summary: List Job Results
+      operationId: list_job_results_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__results_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformJobListResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/agents/v2/workspaces/{workspace}/jobs/evaluate/{name}/status:
+    get:
+      tags:
+      - Agents
+      summary: Get Job Status
+      operationId: get_job_status_apis_agents_v2_workspaces__workspace__jobs_evaluate__name__status_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformJobStatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    Agent:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Entity name within the workspace
+          default: ''
+        workspace:
+          type: string
+          pattern: ^[\w\-\+.@:]+$
+          title: Workspace
+          description: Workspace identifier
+        project:
+          title: Project
+          description: The name of the project associated with this entity.
+          type: string
+        description:
+          type: string
+          title: Description
+          description: Human-readable description of the agent.
+          default: ''
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+          description: NAT workflow config (YAML-equivalent dict, keyed by component
+            name).
+        config_format:
+          type: string
+          title: Config Format
+          description: "platform-internal schema version tag for the agent config\
+            \ dict.  Not read or validated by NAT \u2014 used by NeMo Platform for\
+            \ future config migration.  Currently only 'nat-workflow-v1' is supported."
+          default: nat-workflow-v1
+        id:
+          type: string
+          title: Id
+          readOnly: true
+        created_at:
+          title: Created At
+          readOnly: true
+          type: string
+          format: date-time
+        created_by:
+          title: Created By
+          readOnly: true
+          nullable: true
+          type: string
+        updated_at:
+          title: Updated At
+          readOnly: true
+          type: string
+          format: date-time
+        updated_by:
+          title: Updated By
+          readOnly: true
+          nullable: true
+          type: string
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Alias for id for backwards compatibility.
+          readOnly: true
+        parent:
+          title: Parent
+          description: Parent entity ID for nested entities.
+          readOnly: true
+          type: string
+      type: object
+      required:
+      - workspace
+      - id
+      - created_at
+      - created_by
+      - updated_at
+      - updated_by
+      - entity_id
+      - parent
+      title: Agent
+      description: "An agent definition \u2014 stores the NAT workflow config and\
+        \ metadata.\n\nEntity type: ``agent``\nPrimary lookup: by ``name`` within\
+        \ a ``workspace``."
+    AgentDeployment:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Entity name within the workspace
+          default: ''
+        workspace:
+          type: string
+          pattern: ^[\w\-\+.@:]+$
+          title: Workspace
+          description: Workspace identifier
+        project:
+          title: Project
+          description: The name of the project associated with this entity.
+          type: string
+        agent:
+          type: string
+          title: Agent
+          description: Name of the Agent entity this deployment is for.
+          default: ''
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+          description: Resolved agent config with IGW URL injected, written when the
+            deployment is created.
+        status:
+          type: string
+          enum:
+          - pending
+          - starting
+          - running
+          - failed
+          - deleting
+          title: Status
+          description: 'Lifecycle status: pending | starting | running | failed |
+            deleting.'
+          default: pending
+        endpoint:
+          type: string
+          title: Endpoint
+          description: HTTP endpoint of the running agent process (e.g. http://localhost:9001).
+          default: ''
+        port:
+          type: integer
+          title: Port
+          description: Port the agent process is listening on.
+          default: 0
+        pid:
+          type: integer
+          title: Pid
+          description: OS process ID of the agent subprocess.
+          default: 0
+        error:
+          type: string
+          title: Error
+          description: Error message if status is 'failed'.
+          default: ''
+        id:
+          type: string
+          title: Id
+          readOnly: true
+        created_at:
+          title: Created At
+          readOnly: true
+          type: string
+          format: date-time
+        created_by:
+          title: Created By
+          readOnly: true
+          nullable: true
+          type: string
+        updated_at:
+          title: Updated At
+          readOnly: true
+          type: string
+          format: date-time
+        updated_by:
+          title: Updated By
+          readOnly: true
+          nullable: true
+          type: string
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Alias for id for backwards compatibility.
+          readOnly: true
+        parent:
+          title: Parent
+          description: Parent entity ID for nested entities.
+          readOnly: true
+          type: string
+      type: object
+      required:
+      - workspace
+      - id
+      - created_at
+      - created_by
+      - updated_at
+      - updated_by
+      - entity_id
+      - parent
+      title: AgentDeployment
+      description: "A running (or pending) deployment of an Agent.\n\nEntity type:\
+        \ ``agent_deployment``\nLifecycle: pending \u2192 starting \u2192 running\
+        \ | failed.\nThe :class:`~nemo_agents_plugin.runner.controller.AgentDeploymentController`\n\
+        drives state transitions by reconciling this entity against the\n:class:`~nemo_agents_plugin.runner.backend.RunnerBackend`."
+    CreateAgentRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Unique agent name within the workspace.
+        description:
+          type: string
+          title: Description
+          description: Human-readable description.
+          default: ''
+        config:
+          additionalProperties: true
+          type: object
+          title: Config
+          description: NAT workflow config dict.
+        config_format:
+          type: string
+          title: Config Format
+          description: Config format identifier.
+          default: nat-workflow-v1
+      type: object
+      required:
+      - name
+      - config
+      title: CreateAgentRequest
+      description: Request body for ``POST /v2/workspaces/{workspace}/agents``.
+    CreateDeploymentRequest:
+      properties:
+        agent:
+          type: string
+          title: Agent
+          description: Name of the Agent to deploy.
+        name:
+          title: Name
+          description: Optional deployment name.  Auto-generated from agent name +
+            random suffix if omitted.
+          type: string
+      type: object
+      required:
+      - agent
+      title: CreateDeploymentRequest
+      description: Request body for ``POST /v2/workspaces/{workspace}/deployments``.
+    DatetimeFilter:
+      additionalProperties: false
+      properties:
+        $gte:
+          description: Filter for results greater than or equal to this datetime.
+          title: $Gte
+          format: date-time
+          type: string
+        $lte:
+          description: Filter for results less than or equal to this datetime.
+          title: $Lte
+          format: date-time
+          type: string
+      title: DatetimeFilter
+      type: object
+    EvaluateAgentSpec:
+      properties:
+        agent:
+          title: Agent
+          description: "Agent to evaluate against \u2014 either a platform-managed\
+            \ agent reference (e.g. 'calculator', 'workspace/calculator') or an HTTP(S)\
+            \ endpoint URL (e.g. 'http://localhost:8080').  Bare names resolve to\
+            \ the platform gateway URL '{base_url}/apis/agents/v2/workspaces/{workspace}/agents/{name}/-';\
+            \ URLs are passed through to 'nat eval --endpoint' verbatim.  When omitted,\
+            \ the eval config must include an inline agent workflow."
+          type: string
+        eval_config:
+          type: string
+          title: Eval Config
+          description: Path to the NAT evaluation YAML config file.
+        eval_config_fileset:
+          title: Eval Config Fileset
+          description: Optional fileset reference (``name`` or ``workspace/name``).  When
+            set, the runner downloads the fileset's contents into a tempdir and resolves
+            ``eval_config`` relative to that dir.  Local CLI runs leave this ``None``.
+          type: string
+        output:
+          title: Output
+          description: "Where to write eval outputs \u2014 either a local directory\
+            \ (path-shaped: starts with '/', './', '../', '~/') or a NeMo Platform\
+            \ fileset reference ('name' or 'workspace/name').  Filesets are created\
+            \ on demand if missing.  Defaults to <ctx.storage.persistent>/results\
+            \ (the platform-injected persistent volume) when not provided."
+          type: string
+        workspace:
+          type: string
+          title: Workspace
+          description: Workspace name used to construct the Inference Gateway URL
+            when injecting base_url into judge LLMs that have none set, and to resolve
+            --agent / --output to gateway endpoints / fileset names when given a bare
+            name.
+          default: default
+      type: object
+      required:
+      - eval_config
+      title: EvaluateAgentSpec
+      description: "Spec for an agent evaluation job.\n\nField declaration order also\
+        \ drives the auto-generated CLI flag\norder \u2014 keep the most-frequently-set\
+        \ knobs first.\n\nAttributes:\n    agent: The agent to evaluate against. \
+        \ Accepts either a\n        platform-managed agent reference (``\"name\"``\
+        \ or\n        ``\"workspace/name\"``) or a literal HTTP(S) endpoint URL. \
+        \ The\n        shape is auto-detected at run time \u2014 values containing\n\
+        \        ``\"://\"`` are treated as URLs (and forwarded to\n        ``nat\
+        \ eval --endpoint`` verbatim); anything else is resolved\n        to the platform\
+        \ gateway URL\n        ``{base_url}/apis/agents/v2/workspaces/{workspace}/agents/{name}/-``.\n\
+        \        When ``None`` the eval config is expected to include an\n       \
+        \ inline agent workflow.\n    eval_config: Path to the NAT evaluation YAML\
+        \ config file.  When\n        ``eval_config_fileset`` is set, this is interpreted\
+        \ relative\n        to the downloaded fileset's contents.\n    eval_config_fileset:\
+        \ Optional fileset reference (``name`` or\n        ``workspace/name``) that\
+        \ pre-stages the eval YAML and any\n        sibling files (e.g. dataset).\
+        \  Used by platform-managed\n        submissions where the ``agents.evaluate-agent``\
+        \ function\n        uploads everything before submitting; local CLI runs leave\n\
+        \        this ``None`` and let ``eval_config`` be a real local path.\n   \
+        \ output: Where to put the eval outputs.  Accepts either a local\n       \
+        \ directory path (``./out``, ``/abs/out``, ``~/out``) or an\n        NeMo\
+        \ Platform fileset reference (``\"name\"`` or ``\"workspace/name\"``).\n \
+        \       Path-shaped values write directly to disk; bare names upload\n   \
+        \     results to the named fileset, creating it on demand.  When\n       \
+        \ ``None`` the job writes to ``ctx.storage.persistent /\n        \"results\"\
+        `` \u2014 the platform-injected persistent volume in\n        container runs,\
+        \ a tempdir under ``$TMPDIR`` for local CLI\n        runs.\n    workspace:\
+        \ NeMo Platform workspace used to scope gateway URL injection,\n        ``--agent``\
+        \ resolution, and ``--output`` fileset creation\n        when those values\
+        \ are given as bare names."
+    EvaluateJob:
+      properties:
+        id:
+          title: Id
+          type: string
+        name:
+          type: string
+          title: Name
+        description:
+          title: Description
+          type: string
+        project:
+          title: Project
+          type: string
+        workspace:
+          title: Workspace
+          type: string
+        created_at:
+          title: Created At
+          type: string
+          format: date-time
+        updated_at:
+          title: Updated At
+          type: string
+          format: date-time
+        spec:
+          $ref: '#/components/schemas/EvaluateAgentSpec'
+        status:
+          $ref: '#/components/schemas/PlatformJobStatus'
+        status_details:
+          title: Status Details
+          additionalProperties: true
+          type: object
+        error_details:
+          title: Error Details
+          additionalProperties: true
+          type: object
+        ownership:
+          title: Ownership
+          additionalProperties: true
+          type: object
+        custom_fields:
+          title: Custom Fields
+          additionalProperties: true
+          type: object
+      type: object
+      required:
+      - name
+      - spec
+      title: EvaluateJob
+    EvaluateJobRequest:
+      properties:
+        name:
+          title: Name
+          type: string
+        description:
+          title: Description
+          type: string
+        project:
+          title: Project
+          type: string
+        spec:
+          $ref: '#/components/schemas/EvaluateAgentSpec'
+        ownership:
+          title: Ownership
+          additionalProperties: true
+          type: object
+        custom_fields:
+          title: Custom Fields
+          additionalProperties: true
+          type: object
+      type: object
+      required:
+      - spec
+      title: EvaluateJobRequest
+    EvaluateJobsListFilter:
+      additionalProperties: false
+      properties:
+        created_at:
+          allOf:
+          - $ref: '#/components/schemas/DatetimeFilter'
+          description: Jobs created at 'gte' datetime or 'lte' datetime.
+        name:
+          description: Name of the job.
+          title: Name
+          type: string
+        workspace:
+          description: Workspace of the job.
+          title: Workspace
+          type: string
+        project:
+          description: Project containing the job.
+          title: Project
+          type: string
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PlatformJobStatus'
+          description: The current status.
+        updated_at:
+          allOf:
+          - $ref: '#/components/schemas/DatetimeFilter'
+          description: Jobs updated at 'gte' datetime or 'lte' datetime.
+      title: EvaluateJobsListFilter
+      type: object
+    EvaluateJobsPage:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/EvaluateJob'
+          type: array
+          title: Data
+        pagination:
+          allOf:
+          - $ref: '#/components/schemas/PaginationData'
+          description: Pagination information.
+        sort:
+          title: Sort
+          description: The field on which the results are sorted.
+          type: string
+        filter:
+          title: Filter
+          description: Filtering information.
+          additionalProperties: true
+          type: object
+      type: object
+      required:
+      - data
+      title: EvaluateJobsPage
+    EvaluateJobsSortField:
+      type: string
+      enum:
+      - created_at
+      - -created_at
+      - updated_at
+      - -updated_at
+      title: EvaluateJobsSortField
+    FileStorageType:
+      type: string
+      enum:
+      - fileset
+      title: FileStorageType
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    NemoListResponse_AgentDeployment_:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/AgentDeployment'
+          type: array
+          title: Data
+        pagination:
+          allOf:
+          - $ref: '#/components/schemas/PaginationData'
+          description: "Pagination metadata \u2014 page, page_size, total_results,\
+            \ etc."
+        sort:
+          title: Sort
+          description: Sort field applied to this result set (e.g. '-created_at').
+          type: string
+        filter:
+          title: Filter
+          description: Filter criteria echoed back from the request.
+      type: object
+      required:
+      - data
+      title: NemoListResponse_AgentDeployment_
+    NemoListResponse_Agent_:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/Agent'
+          type: array
+          title: Data
+        pagination:
+          allOf:
+          - $ref: '#/components/schemas/PaginationData'
+          description: "Pagination metadata \u2014 page, page_size, total_results,\
+            \ etc."
+        sort:
+          title: Sort
+          description: Sort field applied to this result set (e.g. '-created_at').
+          type: string
+        filter:
+          title: Filter
+          description: Filter criteria echoed back from the request.
+      type: object
+      required:
+      - data
+      title: NemoListResponse_Agent_
+    PaginationData:
+      properties:
+        page:
+          type: integer
+          title: Page
+          description: The current page number.
+        page_size:
+          type: integer
+          title: Page Size
+          description: The page size used for the query.
+        current_page_size:
+          type: integer
+          title: Current Page Size
+          description: The size for the current page.
+        total_pages:
+          type: integer
+          title: Total Pages
+          description: The total number of pages.
+        total_results:
+          type: integer
+          title: Total Results
+          description: The total number of results.
+      type: object
+      required:
+      - page
+      - page_size
+      - current_page_size
+      - total_pages
+      - total_results
+      title: PaginationData
+    PlatformJobListResultResponse:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/PlatformJobResultResponse'
+          type: array
+          title: Data
+      type: object
+      required:
+      - data
+      title: PlatformJobListResultResponse
+    PlatformJobLog:
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          title: Timestamp
+        job:
+          type: string
+          title: Job
+        job_step:
+          type: string
+          title: Job Step
+        job_task:
+          type: string
+          title: Job Task
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - timestamp
+      - job
+      - job_step
+      - job_task
+      - message
+      title: PlatformJobLog
+    PlatformJobLogPage:
+      properties:
+        data:
+          items:
+            $ref: '#/components/schemas/PlatformJobLog'
+          type: array
+          title: Data
+        total:
+          type: integer
+          title: Total
+        next_page:
+          title: Next Page
+          type: string
+        prev_page:
+          title: Prev Page
+          type: string
+      type: object
+      required:
+      - data
+      - total
+      - next_page
+      - prev_page
+      title: PlatformJobLogPage
+    PlatformJobResultResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+        job:
+          type: string
+          title: Job
+        workspace:
+          type: string
+          title: Workspace
+        project:
+          title: Project
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        artifact_url:
+          type: string
+          title: Artifact Url
+        artifact_storage_type:
+          $ref: '#/components/schemas/FileStorageType'
+        download_url:
+          title: Download Url
+          type: string
+      type: object
+      required:
+      - name
+      - job
+      - workspace
+      - artifact_url
+      - artifact_storage_type
+      title: PlatformJobResultResponse
+    PlatformJobStatus:
+      type: string
+      enum:
+      - created
+      - pending
+      - active
+      - cancelled
+      - cancelling
+      - error
+      - completed
+      - paused
+      - pausing
+      - resuming
+      title: PlatformJobStatus
+      description: 'Enumeration of possible job statuses.
+
+
+        This enum represents the various states a job can be in during its lifecycle,
+
+        from creation to a terminal state.'
+    PlatformJobStatusResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        status:
+          $ref: '#/components/schemas/PlatformJobStatus'
+        status_details:
+          additionalProperties: true
+          type: object
+          title: Status Details
+        error_details:
+          title: Error Details
+          additionalProperties: true
+          type: object
+        steps:
+          items:
+            $ref: '#/components/schemas/PlatformJobStepStatusResponse'
+          type: array
+          title: Steps
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - status_details
+      - error_details
+      - steps
+      - created_at
+      - updated_at
+      title: PlatformJobStatusResponse
+    PlatformJobStepStatusResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        status:
+          $ref: '#/components/schemas/PlatformJobStatus'
+        status_details:
+          additionalProperties: true
+          type: object
+          title: Status Details
+        error_details:
+          title: Error Details
+          additionalProperties: true
+          type: object
+        tasks:
+          items:
+            $ref: '#/components/schemas/PlatformJobTaskStatusResponse'
+          type: array
+          title: Tasks
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - status_details
+      - error_details
+      - tasks
+      - created_at
+      - updated_at
+      title: PlatformJobStepStatusResponse
+    PlatformJobTaskStatusResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        status:
+          $ref: '#/components/schemas/PlatformJobStatus'
+        status_details:
+          additionalProperties: true
+          type: object
+          title: Status Details
+        error_details:
+          title: Error Details
+          additionalProperties: true
+          type: object
+        error_stack:
+          title: Error Stack
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - id
+      - name
+      - status
+      - status_details
+      - error_details
+      - error_stack
+      - created_at
+      - updated_at
+      title: PlatformJobTaskStatusResponse
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+          additionalProperties: true
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

@@ -1,0 +1,320 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""CLI tests for ``nemo agents deploy`` (wait-by-default) and ``nemo agents logs``.
+
+Pin the user-visible contracts:
+
+- ``deploy`` waits for a terminal deployment status by default and exits 1
+  when the deployment fails, so the exit code reflects the actual outcome
+  of the spawn instead of merely the API call.
+- ``deploy --no-wait`` preserves the legacy fire-and-forget behaviour for
+  scripted pipelines that prefer to poll separately.
+- ``logs`` computes the absolute log path from the deployment name using
+  the same convention the runner backend uses internally — no host-bound
+  field is round-tripped through the public API.
+"""
+
+from __future__ import annotations
+
+from contextlib import AbstractContextManager
+from pathlib import Path
+from typing import Any
+from unittest.mock import patch
+
+import httpx
+from nemo_agents_plugin.cli import AgentsCLI
+from typer.testing import CliRunner
+
+
+def _install_mock_transport(handler) -> AbstractContextManager[Any]:
+    """Patch ``httpx.Client`` in the CLI module to use a ``MockTransport``."""
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def _factory(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_client(*args, **kwargs)
+
+    return patch("nemo_agents_plugin.cli.httpx.Client", _factory)
+
+
+# ---------------------------------------------------------------------------
+# deploy --wait (default) — exits 0 on running, 1 on failed
+# ---------------------------------------------------------------------------
+
+
+def test_deploy_default_waits_and_returns_success_on_running() -> None:
+    """``deploy`` polls until status=running and exits 0."""
+    statuses = iter(["pending", "starting", "running"])
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "POST" and req.url.path.endswith("/deployments"):
+            return httpx.Response(
+                201,
+                json={"name": "calc-abcd1234", "status": "pending", "agent": "calc"},
+            )
+        if req.method == "GET" and req.url.path.endswith("/deployments/calc-abcd1234"):
+            status = next(statuses)
+            return httpx.Response(
+                200,
+                json={
+                    "name": "calc-abcd1234",
+                    "status": status,
+                    "endpoint": "http://127.0.0.1:49200" if status == "running" else "",
+                },
+            )
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler), patch("nemo_agents_plugin.cli.time.sleep"):
+        result = CliRunner().invoke(
+            app,
+            ["deploy", "--agent", "calc", "--base-url", "http://test", "--timeout", "10"],
+        )
+
+    assert result.exit_code == 0, result.stdout + (result.stderr or "")
+    assert "is running" in result.stdout
+
+
+def test_deploy_default_exits_failure_when_subprocess_dies() -> None:
+    """Deploy exits 1 when the deployment reaches ``failed``.
+
+    Before this fix the CLI would print the pending entity JSON and exit 0
+    even when the subprocess immediately exited.  After: we wait for a
+    terminal status and propagate failure as exit 1.
+    """
+    statuses = iter(["pending", "starting", "failed"])
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "POST":
+            return httpx.Response(
+                201,
+                json={"name": "calc-deadbeef", "status": "pending", "agent": "calc"},
+            )
+        if req.method == "GET":
+            status = next(statuses)
+            payload: dict[str, Any] = {
+                "name": "calc-deadbeef",
+                "status": status,
+            }
+            if status == "failed":
+                payload["error"] = "Process exited with code 1"
+            return httpx.Response(200, json=payload)
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler), patch("nemo_agents_plugin.cli.time.sleep"):
+        result = CliRunner().invoke(
+            app,
+            ["deploy", "--agent", "calc", "--base-url", "http://test", "--timeout", "10"],
+        )
+
+    assert result.exit_code == 1, result.stdout
+    # The error from the deployment entity is surfaced.
+    assert "exited with code 1" in result.stdout
+    assert "failed" in result.stdout
+
+
+def test_deploy_polls_through_multiple_pending_responses() -> None:
+    """Deploy keeps polling while status is non-terminal — even if the API
+    initially returns ``pending`` repeatedly before the controller runs.
+
+    Without this guarantee the wait loop could exit early on the first
+    poll if it implicitly treated any non-running status as terminal.
+    """
+    # Five `pending`s then a single `running` — exercises the keep-polling path.
+    statuses = iter(["pending", "pending", "pending", "pending", "pending", "running"])
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "POST":
+            return httpx.Response(201, json={"name": "slow-1", "status": "pending", "agent": "calc"})
+        if req.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "name": "slow-1",
+                    "status": next(statuses),
+                    "endpoint": "http://127.0.0.1:49200",
+                },
+            )
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler), patch("nemo_agents_plugin.cli.time.sleep"):
+        result = CliRunner().invoke(
+            app,
+            ["deploy", "--agent", "calc", "--base-url", "http://test", "--timeout", "60"],
+        )
+
+    assert result.exit_code == 0, result.stdout
+    assert "is running" in result.stdout
+
+
+def test_deploy_no_wait_returns_immediately_with_pending_json() -> None:
+    """``--no-wait`` preserves the legacy behaviour: print JSON and exit 0."""
+    posts: list[httpx.Request] = []
+    gets: list[httpx.Request] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "POST":
+            posts.append(req)
+            return httpx.Response(201, json={"name": "calc-abcd", "status": "pending", "agent": "calc"})
+        gets.append(req)
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler):
+        result = CliRunner().invoke(
+            app,
+            ["deploy", "--agent", "calc", "--no-wait", "--base-url", "http://test"],
+        )
+
+    assert result.exit_code == 0, result.stdout + (result.stderr or "")
+    assert "calc-abcd" in result.stdout
+    # No GET polls should have happened — only the POST.
+    assert len(posts) == 1
+    assert gets == []
+
+
+# ---------------------------------------------------------------------------
+# logs subcommand — path derivation
+# ---------------------------------------------------------------------------
+
+
+def _make_log_for(name: str) -> Path:
+    """Materialise a log file at the deterministic path the CLI will look up."""
+    from nemo_agents_plugin.runner.in_memory import log_path_for_deployment
+
+    path = log_path_for_deployment(name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def test_logs_prints_file_contents_from_deterministic_path() -> None:
+    """``nemo agents logs <name>`` reads the file at the conventional path."""
+    log_file = _make_log_for("calc-1")
+    log_file.write_text("agent boot ok\nready on port 49200\n")
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        # The CLI no longer fetches the deployment to learn the log path —
+        # path is resolved client-side from the deployment name.
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler):
+        result = CliRunner().invoke(app, ["logs", "calc-1", "--base-url", "http://test"])
+
+    assert result.exit_code == 0, result.stderr or result.stdout
+    assert "agent boot ok" in result.stdout
+    assert "ready on port 49200" in result.stdout
+
+
+def test_logs_path_only_prints_path_without_reading_file() -> None:
+    """``--path`` prints the absolute path even if the file doesn't exist locally."""
+    from nemo_agents_plugin.runner.in_memory import log_path_for_deployment
+
+    expected_path = str(log_path_for_deployment("calc-1"))
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(lambda r: httpx.Response(404)):
+        result = CliRunner().invoke(app, ["logs", "calc-1", "--path", "--base-url", "http://test"])
+
+    assert result.exit_code == 0, result.stderr or result.stdout
+    assert expected_path in result.stdout
+
+
+def test_logs_reports_helpful_error_when_file_missing() -> None:
+    """If the log file isn't on disk yet, exit 1 with a useful hint."""
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(lambda r: httpx.Response(404)):
+        result = CliRunner().invoke(app, ["logs", "never-spawned", "--base-url", "http://test"])
+
+    assert result.exit_code == 1
+    assert "log file does not exist" in result.stderr
+    assert "different host" in result.stderr  # part of the diagnostic hint
+
+
+def test_logs_tail_prints_only_last_n_lines() -> None:
+    """``--tail N`` prints only the last N lines."""
+    log_file = _make_log_for("calc-1")
+    log_file.write_text("\n".join(f"line-{i}" for i in range(20)) + "\n")
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(lambda r: httpx.Response(404)):
+        result = CliRunner().invoke(app, ["logs", "calc-1", "--tail", "3", "--base-url", "http://test"])
+
+    assert result.exit_code == 0, result.stderr or result.stdout
+    assert "line-19" in result.stdout
+    assert "line-17" in result.stdout
+    # Earlier lines are not included.
+    assert "line-0" not in result.stdout
+
+
+def test_logs_tail_rejects_non_positive_values() -> None:
+    """Zero or negative ``--tail`` is a usage error — fail fast instead of
+    silently printing the full log."""
+    app = AgentsCLI().get_cli()
+    for value in ("0", "-1"):
+        with _install_mock_transport(lambda r: httpx.Response(404)):
+            result = CliRunner().invoke(app, ["logs", "calc-1", "--tail", value, "--base-url", "http://test"])
+
+        assert result.exit_code == 1, f"--tail {value} should reject"
+        assert "positive" in result.stderr
+
+
+def test_logs_resolves_most_recent_deployment_for_agent() -> None:
+    """``--agent`` picks the deployment with the latest ``created_at``,
+    not just the last list element.
+
+    Without sorting, an API change to the default deployments-list ordering
+    would silently make ``--agent`` pick the wrong deployment.
+    """
+    log_file = _make_log_for("calc-2")
+    log_file.write_text("calc-2 ok\n")
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if req.method == "GET" and req.url.path.endswith("/deployments"):
+            # Return them in NON-creation order to confirm the CLI sorts.
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "name": "calc-2",
+                            "agent": "calc",
+                            "status": "running",
+                            "created_at": "2026-05-18T12:00:00",
+                        },
+                        {
+                            "name": "calc-1",
+                            "agent": "calc",
+                            "status": "failed",
+                            "created_at": "2026-05-17T08:00:00",
+                        },
+                        {
+                            "name": "other-1",
+                            "agent": "other",
+                            "status": "running",
+                            "created_at": "2026-05-18T13:00:00",
+                        },
+                    ]
+                },
+            )
+        return httpx.Response(404)
+
+    app = AgentsCLI().get_cli()
+    with _install_mock_transport(handler):
+        result = CliRunner().invoke(app, ["logs", "--agent", "calc", "--base-url", "http://test"])
+
+    assert result.exit_code == 0, result.stderr or result.stdout
+    assert "calc-2 ok" in result.stdout
+
+
+def test_logs_requires_name_or_agent() -> None:
+    """Calling ``logs`` with neither argument exits 1 with a usage error."""
+    app = AgentsCLI().get_cli()
+    result = CliRunner().invoke(app, ["logs", "--base-url", "http://test"])
+
+    assert result.exit_code == 1
+    assert "deployment name or --agent" in result.stderr

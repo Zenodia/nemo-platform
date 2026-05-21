@@ -1,0 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+/// <reference types="vitest" />
+/// <reference types="@testing-library/jest-dom" />

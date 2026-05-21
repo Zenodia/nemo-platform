@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@studio/*": ["./src/*"],
+      "@e2e-tests/*": ["./e2e-tests/*"],
+      "@screenshots/*": ["./screenshots/*"],
+      "@nemo/common/*": ["../common/*"]
+    },
+    /* vitest */
+    "types": [
+      "vitest/globals",
+      "vitest/jsdom",
+      "vite-plugin-svgr/client",
+      "@testing-library/jest-dom"
+    ]
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["vite.config.ts", "screenshots", "scripts"],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
+}

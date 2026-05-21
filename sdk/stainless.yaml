@@ -1,0 +1,1183 @@
+# yaml-language-server: $schema=https://app.stainlessapi.com/config-internal.schema.json
+organization:
+  name: NeMo Platform
+  docs: https://docs.nvidia.com/nemo/microservices/latest/about/index.html
+  contact: ""
+
+custom_casings:
+  nemo:
+    snake: nemo
+    pascal: NeMo
+    capital: NeMo
+    camel: nemo
+  nim:
+    initialism: true
+  ner:
+    initialism: true
+  pii:
+    initialism: true
+  llm:
+    initialism: true
+  url:
+    initialism: true
+  rag:
+    initialism: true
+  ngc:
+    initialism: true
+
+targets:
+#  typescript:
+#    _skip_running_tests: false
+#    package_name: nemo-platform-v1
+#    publish:
+#      npm: false
+#    skip: false
+#    options:
+#      mcp_server:
+#        package_name: nemo-platform-v1-mcp
+#        enable_all_resources: true
+
+  python:
+    # [docs]: https://www.stainless.com/docs/reference/editions
+    edition: python.2025-11-20
+    project_name: nemo-platform-sdk
+    package_name: nemo_platform
+    production_repo:
+    publish:
+      pypi: false
+    options:
+      disable_pydantic_namespace_protection: true
+      # Stainless does not support a 3.11 lower bound yet: setting
+      # python_version_range to ">= 3.11" updates project.requires-python but
+      # leaves .python-version pinned to 3.9.18, which breaks remote bootstrap.
+      use_uv: true
+
+# `environments` are a map of the name of the environment (e.g. "sandbox",
+# "production") to the corresponding url to use.
+environments:
+  production: http://nemo.test/
+
+query_settings:
+  nested_format: "brackets"
+
+settings:
+  # All generated integration tests that hit the prism mock http server are marked
+  # as skipped. Removing this setting or setting it to false enables tests, but
+  # doing so may result in test failures due to bugs in the test server.
+  #
+  # [prism mock http server]: https://stoplight.io/open-source/prism
+  disable_mock_tests: true
+  license: Apache-2.0
+
+# `client_settings` define settings for the API client, such as extra constructor
+# arguments (used for authentication), retry behavior, idempotency, etc.
+client_settings:
+  opts:
+    workspace:
+      type: string
+      nullable: true
+      send_as_path_param: workspace
+
+# `pagination` defines [pagination schemes] which provides a template to match
+# endpoints and generate next-page and auto-pagination helpers in the SDKs.
+pagination:
+- name: default_pagination
+  type: page_number
+  request:
+    page:
+      type: integer
+      x-stainless-pagination-property:
+        purpose: page_number_param
+    page_size:
+      type: integer
+  response:
+    data:
+      type: array
+      x-stainless-pagination-property:
+        purpose: items
+      items:
+        type: object
+        additionalProperties: true
+    pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          title: Page
+          description: The current page number.
+          x-stainless-pagination-property:
+            purpose: current_page_number_field
+        page_size:
+          type: integer
+          title: Page Size
+          description: The page size used for the query.
+        current_page_size:
+          type: integer
+          title: Current Page Size
+          description: The size for the current page.
+        total_pages:
+          type: integer
+          title: Total Pages
+          description: The total number of pages.
+          x-stainless-pagination-property:
+            purpose: total_page_count_field
+        total_results:
+          type: integer
+          title: Total Results
+          description: The total number of results.
+      required:
+      - page
+      - page_size
+      - total_pages
+      - total_results
+      - current_page_size
+- name: logs_pagination
+  type: cursor
+  request:
+    limit:
+      type: integer
+    page_cursor:
+      type: string
+      x-stainless-pagination-property:
+        purpose: next_cursor_param
+  response:
+    data:
+      type: array
+      x-stainless-pagination-property:
+        purpose: items
+      items:
+        type: object
+        additionalProperties: true
+    next_page:
+      type: string
+      x-stainless-pagination-property:
+        purpose: next_cursor_field
+
+streaming:
+  on_event:
+  - data_starts_with: "[DONE]"
+    handle: done
+  - event_type: error
+    handle: error
+  - event_type:
+    handle: yield
+
+readme:
+  example_requests:
+    default:
+      type: request
+      endpoint: get /apis/entities/v2/workspaces
+      params: {}
+    headline:
+      type: request
+      endpoint: get /apis/entities/v2/workspaces
+      params: {}
+    pagination:
+      type: request
+      endpoint: get /apis/audit/v2/workspaces/{workspace}/jobs
+      params: {}
+
+# security_schemes:
+#   bearerAuth:
+#     type: http
+#     scheme: bearer
+# security:
+#   - bearerAuth: []
+#   - {}
+diagnostics:
+  ignored:
+    Python/NameNotAllowed: true
+
+# `resources` define the structure and organization for your API, such as how
+# methods and models are grouped together and accessed. See the [configuration
+# guide] for more information.
+#
+# [configuration guide]: https://app.stainless.com/docs/guides/configure#resources
+resources:
+  audit:
+    standalone_api: true
+    models: {}
+    methods: {}
+    subresources:
+      configs:
+        models: {}
+        methods: {}
+      plugins:
+        models: {}
+        methods: {}
+      targets:
+        models: {}
+        methods: {}
+      jobs:
+        models: {}
+        methods: {}
+        subresources:
+          results:
+            methods: {}
+  entities:
+    standalone_api: true
+    models:
+      entities_page: EntitiesPage
+      entity: Entity
+      entity_create_param: EntityCreateInput
+      entity_update: EntityUpdate
+    methods:
+      create: post /apis/entities/v2/workspaces/{workspace}/entities/{entity_type}
+      list: get /apis/entities/v2/workspaces/{workspace}/entities/{entity_type}
+      get_entity_by_name: get /apis/entities/v2/workspaces/{workspace}/entities/{entity_type}/{name}
+      update_entity_by_name: put /apis/entities/v2/workspaces/{workspace}/entities/{entity_type}/{name}
+      delete_entity_by_name: delete /apis/entities/v2/workspaces/{workspace}/entities/{entity_type}/{name}
+      get_entity_by_id: get /apis/entities/v2/entities/{id}
+  evaluation:
+    standalone_api: true
+    models:
+      agent: Agent
+      agent_goal_accuracy_metric: AgentGoalAccuracyMetric
+      agent_goal_accuracy_metric_param: AgentGoalAccuracyMetricInput
+      aggregated_metric_result: AggregatedMetricResult
+      answer_accuracy_metric: AnswerAccuracyMetric
+      answer_accuracy_metric_param: AnswerAccuracyMetricInput
+      bleu_metric: BLEUMetric
+      bleu_metric_param: BLEUMetricInput
+      context_entity_recall_metric: ContextEntityRecallMetric
+      context_entity_recall_metric_param: ContextEntityRecallMetricInput
+      context_precision_metric: ContextPrecisionMetric
+      context_precision_metric_param: ContextPrecisionMetricInput
+      context_recall_metric: ContextRecallMetric
+      context_recall_metric_param: ContextRecallMetricInput
+      context_relevance_metric: ContextRelevanceMetric
+      context_relevance_metric_param: ContextRelevanceMetricInput
+      dataset_rows: DatasetRows
+      exact_match_metric: ExactMatchMetric
+      exact_match_metric_param: ExactMatchMetricInput
+      f1_metric: F1Metric
+      f1_metric_param: F1MetricInput
+      faithfulness_metric: FaithfulnessMetric
+      faithfulness_metric_param: FaithfulnessMetricInput
+      field_mapping: FieldMapping
+      fileset_ref: FilesetRef
+      inference_params: InferenceParams
+      json_score_parser: JSONScoreParser
+      llm_judge_metric: LLMJudgeMetric
+      llm_judge_metric_param: LLMJudgeMetricInput
+      metric_ref: MetricRef
+      metric_score: MetricScore
+      model: Evaluator.Model
+      nemo_agent_toolkit_remote_metric: NemoAgentToolkitRemoteMetric
+      nemo_agent_toolkit_remote_metric_param: NemoAgentToolkitRemoteMetricInput
+      noise_sensitivity_metric: NoiseSensitivityMetric
+      noise_sensitivity_metric_param: NoiseSensitivityMetricInput
+      number_check_metric: NumberCheckMetric
+      number_check_metric_param: NumberCheckMetricInput
+      parameter: Parameter
+      range_score: RangeScore
+      reasoning_params: ReasoningParams
+      regex_score_parser: RegexScoreParser
+      remote_metric: RemoteMetric
+      remote_metric_param: RemoteMetricInput
+      remote_score: RemoteScore
+      response_groundedness_metric: ResponseGroundednessMetric
+      response_groundedness_metric_param: ResponseGroundednessMetricInput
+      response_relevancy_metric: ResponseRelevancyMetric
+      response_relevancy_metric_param: ResponseRelevancyMetricInput
+      rouge_metric: ROUGEMetric
+      rouge_metric_param: ROUGEMetricInput
+      row_score: RowScore
+      rubric: Rubric
+      rubric_score: RubricScore
+      run_config: RunConfig
+      run_config_online: RunConfigOnline
+      run_config_online_model: RunConfigOnlineModel
+      score_stats: ScoreStats
+      string_check_metric: StringCheckMetric
+      string_check_metric_param: StringCheckMetricInput
+      tool_call_accuracy_metric: ToolCallAccuracyMetric
+      tool_call_accuracy_metric_param: ToolCallAccuracyMetricInput
+      tool_calling_metric: ToolCallingMetric
+      tool_calling_metric_param: ToolCallingMetricInput
+      topic_adherence_metric: TopicAdherenceMetric
+      topic_adherence_metric_param: TopicAdherenceMetricInput
+    subresources:
+      benchmarks:
+        models:
+          benchmark: Benchmark
+          benchmark_request: BenchmarkRequest
+          benchmarks_list_response: BenchmarksListResponse
+          extended_benchmark: ExtendedBenchmark
+          system_benchmark: SystemBenchmark
+          system_metric: SystemMetric
+        methods:
+          create: post /apis/evaluation/v2/workspaces/{workspace}/benchmarks
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/benchmarks/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/benchmarks/{name}
+          list: get /apis/evaluation/v2/workspaces/{workspace}/benchmarks
+      benchmark_jobs:
+        models:
+          benchmark_evaluation_job: BenchmarkEvaluationJob
+          benchmark_evaluation_job_request: BenchmarkEvaluationJobRequest
+          benchmark_evaluation_jobs_list_filter: BenchmarkEvaluationJobsListFilter
+          benchmark_evaluation_jobs_page: BenchmarkEvaluationJobsPage
+          benchmark_evaluation_jobs_sort_field: BenchmarkEvaluationJobsSortField
+          benchmark_offline_job: BenchmarkOfflineJob
+          benchmark_online_agent_job: BenchmarkOnlineAgentJob
+          benchmark_online_job: BenchmarkOnlineJob
+          benchmark_ref: BenchmarkRef
+          system_benchmark_offline_job: SystemBenchmarkOfflineJob
+          system_benchmark_online_job: SystemBenchmarkOnlineJob
+        methods:
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}
+          cancel: post /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}/cancel
+          get_logs:
+            endpoint: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}/logs
+            paginated: true
+          get_status: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}/status
+          create: post /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs
+          list: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs
+        subresources:
+          results:
+            methods:
+              list: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{name}/results
+              retrieve: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{job}/results/{name}
+              download: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{job}/results/{name}/download
+            subresources:
+              aggregate_scores:
+                models:
+                  benchmark_evaluation_result: BenchmarkEvaluationResult
+                  benchmark_metric_result: BenchmarkMetricResult
+                methods:
+                  download: get 
+                    /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{job}/results/aggregate-scores/download
+              row_scores:
+                methods:
+                  download: get 
+                    /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{job}/results/row-scores/download
+              artifacts:
+                methods:
+                  download: get 
+                    /apis/evaluation/v2/workspaces/{workspace}/benchmark-jobs/{job}/results/artifacts/download
+      benchmark_job_results:
+        models:
+          benchmark_job_result: BenchmarkJobResult
+          benchmark_job_results_list_response: BenchmarkJobResultsListResponse
+        methods:
+          list: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-job-results
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/benchmark-job-results/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/benchmark-job-results/{name}
+      metrics:
+        models:
+          agent_goal_accuracy_metric_response: AgentGoalAccuracyMetricResponse
+          aggregate_range_score: AggregateRangeScore
+          aggregate_rubric_score: AggregateRubricScore
+          answer_accuracy_metric_response: AnswerAccuracyMetricResponse
+          bleu_metric_response: BLEUMetricResponse
+          context_entity_recall_metric_response: ContextEntityRecallMetricResponse
+          context_precision_metric_response: ContextPrecisionMetricResponse
+          context_recall_metric_response: ContextRecallMetricResponse
+          context_relevance_metric_response: ContextRelevanceMetricResponse
+          evaluate_dataset_rows: EvaluateDatasetRows
+          exact_match_metric_response: ExactMatchMetricResponse
+          f1_metric_response: F1MetricResponse
+          faithfulness_metric_response: FaithfulnessMetricResponse
+          histogram: Histogram
+          histogram_bin: HistogramBin
+          llm_judge_metric_response: LLMJudgeMetricResponse
+          metric_evaluation_request: MetricEvaluationRequest
+          metric_evaluation_response: MetricEvaluationResponse
+          metric_evaluation_row_score: MetricEvaluationRowScore
+          metric_type: MetricType
+          metrics_list_response: MetricsListResponse
+          model_ref: ModelRef
+          nemo_agent_toolkit_remote_metric_response: NemoAgentToolkitRemoteMetricResponse
+          noise_sensitivity_metric_response: NoiseSensitivityMetricResponse
+          number_check_metric_response: NumberCheckMetricResponse
+          percentiles: Percentiles
+          remote_metric_response: RemoteMetricResponse
+          response_groundedness_metric_response: ResponseGroundednessMetricResponse
+          response_relevancy_metric_response: ResponseRelevancyMetricResponse
+          rouge_metric_response: ROUGEMetricResponse
+          rubric_score_stat: RubricScoreStat
+          string_check_metric_response: StringCheckMetricResponse
+          system_metric_response: SystemMetricResponse
+          tool_call_accuracy_metric_response: ToolCallAccuracyMetricResponse
+          tool_calling_metric_response: ToolCallingMetricResponse
+          topic_adherence_metric_response: TopicAdherenceMetricResponse
+        methods:
+          evaluate: post /apis/evaluation/v2/workspaces/{workspace}/metric-evaluate
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/metrics/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/metrics/{name}
+          list: get /apis/evaluation/v2/workspaces/{workspace}/metrics
+          create: post /apis/evaluation/v2/workspaces/{workspace}/metrics/{name}
+      metric_jobs:
+        models:
+          built_in_dataset: BuiltInDataset
+          fileset: FilesetInput
+          metric_evaluation_job: MetricEvaluationJob
+          metric_evaluation_job_request: MetricEvaluationJobRequest
+          metric_evaluation_jobs_list_filter: MetricEvaluationJobsListFilter
+          metric_evaluation_jobs_page: MetricEvaluationJobsPage
+          metric_evaluation_jobs_sort_field: MetricEvaluationJobsSortField
+          metric_offline_job: MetricOfflineJob
+          metric_online_agent_job: MetricOnlineAgentJob
+          metric_online_job: MetricOnlineJob
+          metric_retriever_job: MetricRetrieverJob
+          retriever_pipeline: RetrieverPipelineInput
+          system_metric_param: SystemMetricInput
+        methods:
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}
+          cancel: post /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}/cancel
+          get_logs:
+            endpoint: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}/logs
+            paginated: true
+          get_status: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}/status
+          create: post /apis/evaluation/v2/workspaces/{workspace}/metric-jobs
+          list: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs
+        subresources:
+          results:
+            methods:
+              list: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{name}/results
+              retrieve: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{job}/results/{name}
+              download: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{job}/results/{name}/download
+            subresources:
+              aggregate_scores:
+                methods:
+                  download: get 
+                    /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{job}/results/aggregate-scores/download
+              row_scores:
+                methods:
+                  download: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{job}/results/row-scores/download
+              artifacts:
+                methods:
+                  download: get /apis/evaluation/v2/workspaces/{workspace}/metric-jobs/{job}/results/artifacts/download
+      metric_job_results:
+        models:
+          metric_job_result: MetricJobResult
+          metric_job_results_list_response: MetricJobResultsListResponse
+        methods:
+          list: get /apis/evaluation/v2/workspaces/{workspace}/metric-job-results
+          retrieve: get /apis/evaluation/v2/workspaces/{workspace}/metric-job-results/{name}
+          delete: delete /apis/evaluation/v2/workspaces/{workspace}/metric-job-results/{name}
+  files:
+    standalone_api: true
+    models:
+      cache_status: CacheStatus
+      create_fileset_request: CreateFilesetRequest
+      dataset_metadata_content: DatasetMetadataContent
+      fileset: FilesetOutput
+      fileset_file: FilesetFileOutput
+      fileset_outputs_page: FilesetOutputsPage
+      fileset_purpose: FilesetPurpose
+      huggingface_storage_config: HuggingfaceStorageConfig
+      list_fileset_files_response: ListFilesetFilesResponse
+      local_storage_config: LocalStorageConfig
+      ngc_storage_config: NGCStorageConfig
+      s3_storage_config: S3StorageConfig
+      secret_ref: SecretRef
+      storage_config_type: StorageConfigType
+      update_fileset_request: UpdateFilesetRequest
+    methods:
+      _list_files: get /apis/files/v2/workspaces/{workspace}/filesets/{name}/files
+      _download_file: get /apis/files/v2/workspaces/{workspace}/filesets/{name}/-/{path}
+      _upload_file: put /apis/files/v2/workspaces/{workspace}/filesets/{name}/-/{path}
+      _delete_file: delete /apis/files/v2/workspaces/{workspace}/filesets/{name}/-/{path}
+    subresources:
+      filesets:
+        models:
+          fileset_filter: FilesetFilter
+          fileset_metadata_param: FilesetMetadataInput
+        methods:
+          create: post /apis/files/v2/workspaces/{workspace}/filesets
+          list: get /apis/files/v2/workspaces/{workspace}/filesets
+          retrieve: get /apis/files/v2/workspaces/{workspace}/filesets/{name}
+          delete: delete /apis/files/v2/workspaces/{workspace}/filesets/{name}
+          update: patch /apis/files/v2/workspaces/{workspace}/filesets/{name}
+      otlp:
+        subresources:
+          logs:
+            models:
+              log_query_request: LogQueryRequest
+              otel_export_logs_partial_success: OtelExportLogsPartialSuccess
+              otel_export_logs_service_response: OtelExportLogsServiceResponse
+            methods:
+              create: post /apis/files/v2/workspaces/{workspace}/filesets/{name}/otlp/v1/logs
+              query: post /apis/files/v2/workspaces/{workspace}/filesets/{name}/otlp/v1/logs/query
+  guardrail:
+    standalone_api: true
+    models:
+      action_rails: ActionRails
+      activated_rail: ActivatedRail
+      ai_defense_rail_config: AIDefenseRailConfig
+      auto_align_options: AutoAlignOptions
+      auto_align_rail_config: AutoAlignRailConfig
+      cache_stats_config: CacheStatsConfig
+      chat_completion_assistant_message_param: ChatCompletionAssistantMessageParam
+      chat_completion_content_part_image_param: ChatCompletionContentPartImageParam
+      chat_completion_content_part_text_param: ChatCompletionContentPartTextParam
+      chat_completion_function_message_param: ChatCompletionFunctionMessageParam
+      chat_completion_message_tool_call_param: ChatCompletionMessageToolCallParam
+      chat_completion_system_message_param: ChatCompletionSystemMessageParam
+      chat_completion_tool_message_param: ChatCompletionToolMessageParam
+      chat_completion_user_message_param: ChatCompletionUserMessageParam
+      clavata_rail_config: ClavataRailConfig
+      clavata_rail_options: ClavataRailOptions
+      content_safety_config: ContentSafetyConfig
+      crowd_strike_aidr_rail_config: CrowdStrikeAIDRRailConfig
+      dialog_rails: DialogRails
+      executed_action: ExecutedAction
+      fact_checking_rail_config: FactCheckingRailConfig
+      fiddler_guardrails: FiddlerGuardrails
+      function: Function
+      function_call: FunctionCall
+      g_li_ner_detection: GLiNERDetection
+      g_li_ner_detection_options: GLiNERDetectionOptions
+      generation_log: GenerationLog
+      generation_log_options: GenerationLogOptions
+      generation_options: GenerationOptions
+      generation_rails_options: GenerationRailsOptions
+      generation_stats: GenerationStats
+      guardrail_check_request: GuardrailCheckRequest
+      guardrail_check_response: GuardrailCheckResponse
+      guardrail_config: GuardrailConfig
+      guardrails_ai_rail_config: GuardrailsAIRailConfig
+      guardrails_ai_validator_config: GuardrailsAIValidatorConfig
+      guardrails_data: GuardrailsDataOutput
+      guardrails_data_param: GuardrailsDataInput
+      image_u_rl: ImageURL
+      injection_detection: InjectionDetection
+      input_rails: InputRails
+      instruction: Instruction
+      jailbreak_detection_config: JailbreakDetectionConfig
+      llm_call_info: LLMCallInfo
+      log_adapter_config: LogAdapterConfig
+      message_template: MessageTemplate
+      model: Model
+      model_cache_config: ModelCacheConfig
+      model_parameters: ModelParameters
+      multilingual_config: MultilingualConfig
+      output_rails: OutputRails
+      output_rails_streaming_config: OutputRailsStreamingConfig
+      pangea_rail_config: PangeaRailConfig
+      pangea_rail_options: PangeaRailOptions
+      patronus_evaluate_api_params: PatronusEvaluateApiParams
+      patronus_evaluate_config_param: PatronusEvaluateConfigInput
+      patronus_evaluation_success_strategy: PatronusEvaluationSuccessStrategy
+      patronus_rail_config_param: PatronusRailConfigInput
+      private_ai_detection: PrivateAIDetection
+      private_ai_detection_options: PrivateAIDetectionOptions
+      rail_status: RailStatus
+      rails_config_data_param: RailsConfigDataInput
+      rails_config_param: RailsConfigInput
+      rails_param: RailsInput
+      reasoning_config: ReasoningConfig
+      regex_detection: RegexDetection
+      regex_detection_options: RegexDetectionOptions
+      retrieval_rails: RetrievalRails
+      sensitive_data_detection: SensitiveDataDetection
+      sensitive_data_detection_options: SensitiveDataDetectionOptions
+      single_call_config: SingleCallConfig
+      status_enum: StatusEnum
+      task_prompt: TaskPrompt
+      tool_input_rails: ToolInputRails
+      tool_output_rails: ToolOutputRails
+      tracing_config: TracingConfig
+      trend_micro_rail_config: TrendMicroRailConfig
+      user_messages_config: UserMessagesConfig
+    methods:
+      check: post /apis/guardrails/v2/workspaces/{workspace}/checks
+    subresources:
+      configs:
+        models:
+          guardrail_config_filter: GuardrailConfigFilter
+          guardrail_config_param: GuardrailConfigInput
+          guardrail_config_update: GuardrailConfigUpdate
+          guardrail_configs_page: GuardrailConfigsPage
+          patronus_evaluate_config: PatronusEvaluateConfigOutput
+          patronus_rail_config: PatronusRailConfigOutput
+          rails: RailsOutput
+          rails_config: RailsConfigOutput
+          rails_config_data: RailsConfigDataOutput
+        methods:
+          list: get /apis/guardrails/v2/workspaces/{workspace}/configs
+          create: post /apis/guardrails/v2/workspaces/{workspace}/configs
+          retrieve: get /apis/guardrails/v2/workspaces/{workspace}/configs/{name}
+          update: patch /apis/guardrails/v2/workspaces/{workspace}/configs/{name}
+          delete: delete /apis/guardrails/v2/workspaces/{workspace}/configs/{name}
+  inference:
+    standalone_api: true
+    subresources:
+      virtual_models:
+        models:
+          create_virtual_model_request: CreateVirtualModelRequest
+          middleware_call: MiddlewareCall
+          update_virtual_model_request: UpdateVirtualModelRequest
+          virtual_model: VirtualModel
+          virtual_model_inference_config: VirtualModelInferenceConfig
+          virtual_models_page: VirtualModelsPage
+        methods:
+          create: post /apis/inference-gateway/v2/workspaces/{workspace}/virtual-models
+          list: get /apis/inference-gateway/v2/workspaces/{workspace}/virtual-models
+          retrieve: get /apis/inference-gateway/v2/workspaces/{workspace}/virtual-models/{name}
+          patch: patch /apis/inference-gateway/v2/workspaces/{workspace}/virtual-models/{name}
+          delete: delete /apis/inference-gateway/v2/workspaces/{workspace}/virtual-models/{name}
+      # Alias for gateway.openai.v1.models (IGW OpenAI list-models); same endpoints, shorter path.
+      models:
+        models:
+          open_ai_list_models_resp: OpenAIListModelsResp
+          open_ai_model_resp: OpenAIModelResp
+        methods:
+          list: get /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/v1/models
+          get: get /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/v1/models/{name}
+      deployment_configs:
+        models:
+          create_model_deployment_config_request: CreateModelDeploymentConfigRequest
+          k8s_nim_operator_config: K8sNIMOperatorConfig
+          model_deployment_config: ModelDeploymentConfig
+          model_deployment_config_filter: ModelDeploymentConfigFilter
+          model_deployment_configs_page: ModelDeploymentConfigsPage
+          model_type: ModelType
+          nim_deployment: NIMDeployment
+          update_model_deployment_config_request: UpdateModelDeploymentConfigRequest
+        methods:
+          list: get /apis/models/v2/workspaces/{workspace}/deployment-configs
+          create: post /apis/models/v2/workspaces/{workspace}/deployment-configs
+          retrieve: get /apis/models/v2/workspaces/{workspace}/deployment-configs/{name}
+          update: post /apis/models/v2/workspaces/{workspace}/deployment-configs/{name}
+          delete: delete /apis/models/v2/workspaces/{workspace}/deployment-configs/{name}
+        subresources:
+          versions:
+            methods:
+              list: get /apis/models/v2/workspaces/{workspace}/deployment-configs/{name}/versions
+              retrieve: get /apis/models/v2/workspaces/{workspace}/deployment-configs/{config}/versions/{name}
+              delete: delete /apis/models/v2/workspaces/{workspace}/deployment-configs/{config}/versions/{name}
+      deployments:
+        models:
+          create_model_deployment_request: CreateModelDeploymentRequest
+          model_deployment: ModelDeployment
+          model_deployment_filter: ModelDeploymentFilter
+          model_deployment_status: ModelDeploymentStatus
+          model_deployment_status_history_item: ModelDeploymentStatusHistoryItem
+          model_deployments_page: ModelDeploymentsPage
+          update_model_deployment_request: UpdateModelDeploymentRequest
+          update_model_deployment_status_request: UpdateModelDeploymentStatusRequest
+        methods:
+          list: get /apis/models/v2/workspaces/{workspace}/deployments
+          create: post /apis/models/v2/workspaces/{workspace}/deployments
+          retrieve: get /apis/models/v2/workspaces/{workspace}/deployments/{name}
+          update: post /apis/models/v2/workspaces/{workspace}/deployments/{name}
+          delete: delete /apis/models/v2/workspaces/{workspace}/deployments/{name}
+          list_models: get /apis/models/v2/workspaces/{workspace}/deployments/{name}/models
+          update_status: post /apis/models/v2/workspaces/{workspace}/deployments/{name}/status
+        subresources:
+          versions:
+            methods:
+              list: get /apis/models/v2/workspaces/{workspace}/deployments/{name}/versions
+              retrieve: get /apis/models/v2/workspaces/{workspace}/deployments/{deployment}/versions/{name}
+              delete: delete /apis/models/v2/workspaces/{workspace}/deployments/{deployment}/versions/{name}
+      providers:
+        models:
+          create_model_provider_request: CreateModelProviderRequest
+          model_provider: ModelProvider
+          model_provider_filter: ModelProviderFilter
+          model_provider_sort: ModelProviderSort
+          model_provider_status: ModelProviderStatus
+          model_providers_page: ModelProvidersPage
+          served_model_mapping: ServedModelMapping
+          update_model_provider_status_request: UpdateModelProviderStatusRequest
+          upsert_model_provider_request: UpsertModelProviderRequest
+        methods:
+          list: get /apis/models/v2/workspaces/{workspace}/providers
+          create: post /apis/models/v2/workspaces/{workspace}/providers
+          retrieve: get /apis/models/v2/workspaces/{workspace}/providers/{name}
+          update: put /apis/models/v2/workspaces/{workspace}/providers/{name}
+          delete: delete /apis/models/v2/workspaces/{workspace}/providers/{name}
+          update_status: put /apis/models/v2/workspaces/{workspace}/providers/{name}/status
+      gateway:
+        subresources:
+          openai:
+            methods:
+              get: get /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/{trailing_uri}
+              post: post /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/{trailing_uri}
+              put: put /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/{trailing_uri}
+              delete: delete /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/{trailing_uri}
+              patch: patch /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/{trailing_uri}
+            subresources:
+              v1:
+                subresources:
+                  models:
+                    models:
+                      open_ai_list_models_resp: OpenAIListModelsResp
+                      open_ai_model_resp: OpenAIModelResp
+                    methods:
+                      list: get /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/v1/models
+                      get: get /apis/inference-gateway/v2/workspaces/{workspace}/openai/-/v1/models/{name}
+          model:
+            methods:
+              get: get /apis/inference-gateway/v2/workspaces/{workspace}/model/{name}/-/{trailing_uri}
+              post: post /apis/inference-gateway/v2/workspaces/{workspace}/model/{name}/-/{trailing_uri}
+              put: put /apis/inference-gateway/v2/workspaces/{workspace}/model/{name}/-/{trailing_uri}
+              delete: delete /apis/inference-gateway/v2/workspaces/{workspace}/model/{name}/-/{trailing_uri}
+              patch: patch /apis/inference-gateway/v2/workspaces/{workspace}/model/{name}/-/{trailing_uri}
+          provider:
+            methods:
+              get: get /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/-/{trailing_uri}
+              post: post /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/-/{trailing_uri}
+              put: put /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/-/{trailing_uri}
+              delete: delete /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/-/{trailing_uri}
+              patch: patch /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/-/{trailing_uri}
+              ready: get /apis/inference-gateway/v2/workspaces/{workspace}/provider/{name}/ready
+  jobs:
+    standalone_api: true
+    models:
+      compute_resource_spec: ComputeResourceSpec
+      compute_resources: ComputeResources
+      container_spec: ContainerSpec
+      cpu_execution_provider: CPUExecutionProviderOutput
+      cpu_execution_provider_param: CPUExecutionProviderInput
+      create_platform_job_request: CreatePlatformJobRequest
+      distributed_gpu_execution_provider: DistributedGPUExecutionProviderOutput
+      distributed_gpu_execution_provider_param: DistributedGPUExecutionProviderInput
+      docker_job_execution_profile: DockerJobExecutionProfile
+      docker_job_execution_profile_config: DockerJobExecutionProfileConfig
+      docker_job_network_config: DockerJobNetworkConfig
+      docker_job_storage_config: DockerJobStorageConfig
+      docker_volume_mount: DockerVolumeMount
+      e2e_job_execution_profile: E2EJobExecutionProfile
+      gpu_execution_provider: GPUExecutionProviderOutput
+      gpu_execution_provider_param: GPUExecutionProviderInput
+      image_pull_secret: ImagePullSecret
+      job_execution_profile_config: JobExecutionProfileConfig
+      kubernetes_empty_dir_volume: KubernetesEmptyDirVolume
+      kubernetes_job_execution_profile: KubernetesJobExecutionProfile
+      kubernetes_job_execution_profile_config: KubernetesJobExecutionProfileConfig
+      kubernetes_job_storage_config: KubernetesJobStorageConfig
+      kubernetes_object_metadata: KubernetesObjectMetadata
+      kubernetes_persistent_volume_claim: KubernetesPersistentVolumeClaim
+      kubernetes_volume: KubernetesVolume
+      kubernetes_volume_mount: KubernetesVolumeMount
+      platform_job_environment_variable: PlatformJobEnvironmentVariable
+      platform_job_response: PlatformJobResponse
+      platform_job_responses_page: PlatformJobResponsesPage
+      platform_job_secret_environment_variable_ref: PlatformJobSecretEnvironmentVariableRef
+      platform_job_sort_field: PlatformJobSortField
+      platform_job_spec: PlatformJobSpecOutput
+      platform_job_spec_param: PlatformJobSpecInput
+      platform_job_step_spec: PlatformJobStepSpecOutput
+      platform_job_step_spec_param: PlatformJobStepSpecInput
+      platform_jobs_list_filter: PlatformJobsListFilter
+      step_lifecycle: StepLifecycle
+      subprocess_execution_provider: SubprocessExecutionProvider
+      subprocess_job_execution_profile: SubprocessJobExecutionProfile
+      subprocess_job_execution_profile_config: SubprocessJobExecutionProfileConfig
+      volcano_job_execution_profile: VolcanoJobExecutionProfile
+      volcano_job_execution_profile_config: VolcanoJobExecutionProfileConfig
+    methods:
+      create: post /apis/jobs/v2/workspaces/{workspace}/jobs
+      list: get /apis/jobs/v2/workspaces/{workspace}/jobs
+      retrieve: get /apis/jobs/v2/workspaces/{workspace}/jobs/{name}
+      delete: delete /apis/jobs/v2/workspaces/{workspace}/jobs/{name}
+      cancel: post /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/cancel
+      pause: post /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/pause
+      resume: post /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/resume
+      get_logs:
+        endpoint: get /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/logs
+        paginated: true
+      get_status: get /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/status
+      list_execution_profiles: get /apis/jobs/v2/execution-profiles
+      update_status_details: patch /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/status-details
+    subresources:
+      results:
+        models:
+          platform_job_result_create_request: PlatformJobResultCreateRequest
+        methods:
+          list: get /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/results
+          retrieve: get /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/results/{name}
+          create: post /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/results/{name}
+          download: get /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/results/{name}/download
+      steps:
+        models:
+          platform_job_status_update_request: PlatformJobStatusUpdateRequest
+          platform_job_step: PlatformJobStep
+          platform_job_step_with_context: PlatformJobStepWithContext
+          platform_job_step_with_contexts_page: PlatformJobStepWithContextsPage
+          platform_job_steps_list_filter: PlatformJobStepsListFilter
+        methods:
+          list: get /apis/jobs/v2/workspaces/{workspace}/jobs/{name}/steps
+          retrieve: get /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/steps/{name}
+          update_status: patch /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/steps/{name}/status
+      tasks:
+        models:
+          platform_job_list_task_response: PlatformJobListTaskResponse
+          platform_job_task: PlatformJobTask
+          platform_job_task_update: PlatformJobTaskUpdate
+        methods:
+          list: get /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/steps/{name}/tasks
+          retrieve: get /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/steps/{step}/tasks/{name}
+          create_or_update: put /apis/jobs/v2/workspaces/{workspace}/jobs/{job}/steps/{step}/tasks/{name}
+
+  models:
+    standalone_api: true
+    models:
+      adapter: Adapter
+      base_model_filter: BaseModelFilter
+      create_model_entity_request: CreateModelEntityRequest
+      finetuning_type_filter: FinetuningTypeFilter
+      model_entity: ModelEntity
+      model_entity_filter: ModelEntityFilter
+      model_entity_sort_field: ModelEntitySortField
+      model_entitys_page: ModelEntitysPage
+      update_model_entity_request: UpdateModelEntityRequest
+    methods:
+      create: post /apis/models/v2/workspaces/{workspace}/models
+      list: get /apis/models/v2/workspaces/{workspace}/models
+      retrieve: get /apis/models/v2/workspaces/{workspace}/models/{name}
+      update: patch /apis/models/v2/workspaces/{workspace}/models/{name}
+      delete: delete /apis/models/v2/workspaces/{workspace}/models/{name}
+    subresources:
+      adapters:
+        models:
+          create_adapter_request: CreateAdapterRequest
+          create_model_adapter_request: CreateModelAdapterRequest
+          lora: Lora
+          update_adapter_request: UpdateAdapterRequest
+        methods:
+          create: post /apis/models/v2/workspaces/{workspace}/models/{model_name}/adapters
+          delete: delete /apis/models/v2/workspaces/{workspace}/models/{model_name}/adapters/{adapter}
+          update: patch /apis/models/v2/workspaces/{workspace}/models/{model_name}/adapters/{adapter}
+  workspaces:
+    standalone_api: true
+    models:
+      workspace: Workspace
+      workspace_param: WorkspaceInput
+      workspace_update: WorkspaceUpdate
+      workspaces_page: WorkspacesPage
+    methods:
+      create: post /apis/entities/v2/workspaces
+      list: get /apis/entities/v2/workspaces
+      retrieve: get /apis/entities/v2/workspaces/{name}
+      update: put /apis/entities/v2/workspaces/{name}
+      delete: delete /apis/entities/v2/workspaces/{name}
+
+  safe_synthesizer:
+    standalone_api: true
+    subresources:
+      jobs:
+        models:
+          classify_config: ClassifyConfig
+          column: Column
+          column_actions: ColumnActions
+          data_parameters: DataParameters
+          differential_privacy_hyperparams: DifferentialPrivacyHyperparams
+          evaluation_parameters: EvaluationParameters
+          generate_parameters: GenerateParameters
+          gliner_config: GlinerConfig
+          globals: Globals
+          ner_config: NERConfig
+          pii_replacer_config: PiiReplacerConfig
+          row: Row
+          row_actions: RowActions
+          safe_synthesizer_job: SafeSynthesizerJob
+          safe_synthesizer_job_config: SafeSynthesizerJobConfig
+          safe_synthesizer_job_request: SafeSynthesizerJobRequest
+          safe_synthesizer_jobs_list_filter: SafeSynthesizerJobsListFilter
+          safe_synthesizer_jobs_page: SafeSynthesizerJobsPage
+          safe_synthesizer_jobs_sort_field: SafeSynthesizerJobsSortField
+          safe_synthesizer_parameters: SafeSynthesizerParameters
+          step_definition: StepDefinition
+          time_series_parameters: TimeSeriesParameters
+          training_hyperparams: TrainingHyperparams
+          validation_parameters: ValidationParameters
+        methods:
+          create: post /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs
+          list: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs
+          retrieve: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}
+          delete: delete /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}
+          cancel: post /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}/cancel
+          get_logs:
+            endpoint: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}/logs
+            paginated: true
+          get_status: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}/status
+        subresources:
+          results:
+            models:
+              safe_synthesizer_summary: SafeSynthesizerSummary
+              safe_synthesizer_timing: SafeSynthesizerTiming
+            methods:
+              list: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{name}/results
+              retrieve: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/{name}
+              download: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/{name}/download
+              download_evaluation_report: get 
+                /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/evaluation-report/download
+              download_summary: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/summary/download
+              download_synthetic_data: get 
+                /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/synthetic-data/download
+              download_adapter: get /apis/safe-synthesizer/v2/workspaces/{workspace}/jobs/{job}/results/adapter/download
+  secrets:
+    standalone_api: true
+    models:
+      platform_secret_access_response: PlatformSecretAccessResponse
+      platform_secret_create_request: PlatformSecretCreateRequest
+      platform_secret_response: PlatformSecretResponse
+      platform_secret_responses_page: PlatformSecretResponsesPage
+      platform_secret_update_request: PlatformSecretUpdateRequest
+    methods:
+      create: post /apis/secrets/v2/workspaces/{workspace}/secrets
+      list: get /apis/secrets/v2/workspaces/{workspace}/secrets
+      retrieve: get /apis/secrets/v2/workspaces/{workspace}/secrets/{name}
+      update: patch /apis/secrets/v2/workspaces/{workspace}/secrets/{name}
+      delete: delete /apis/secrets/v2/workspaces/{workspace}/secrets/{name}
+      access: get /apis/secrets/v2/workspaces/{workspace}/secrets/{name}/access
+    subresources:
+      admin:
+        models:
+          platform_secret_admin_rotation_response: PlatformSecretAdminRotationResponse
+        methods:
+          rotate_encryption_keys: post /apis/secrets/v2/rotate-encryption-keys
+  $shared:
+    models:
+      validation_error: ValidationError
+      http_validation_error: HTTPValidationError
+      pagination_data: PaginationData
+      generic_sort_field: GenericSortField
+      api_endpoint_data: APIEndpointData
+      field_error: FieldError
+      prompt_data: PromptData
+      error_response: ErrorResponse
+      delete_response: DeleteResponse
+      datetime_filter: DatetimeFilter
+      platform_job_status: PlatformJobStatus
+      file_storage_type: FileStorageType
+      platform_job_result_response: PlatformJobResultResponse
+      platform_job_list_result_response: PlatformJobListResultResponse
+      linear_layer_spec: LinearLayerSpec
+      mamba_config: MambaConfig
+      mo_e_config: MoEConfig
+      sliding_window_config: SlidingWindowConfig
+      model_spec: ModelSpec
+      platform_job_log: PlatformJobLog
+      platform_job_log_page: PlatformJobLogPage
+      platform_job_step_status_response: PlatformJobStepStatusResponse
+      platform_job_task_status_response: PlatformJobTaskStatusResponse
+      platform_job_status_response: PlatformJobStatusResponse
+      oidc_discovery_response: OIDCDiscoveryResponse
+      auth_discovery_response: AuthDiscoveryResponse
+      auth_context: AuthContext
+      tool_call_config: ToolCallConfig
+      model_metadata_content: ModelMetadataContent
+      fileset_metadata: FilesetMetadataOutput
+      tool_calling_metadata_content: ToolCallingMetadataContent
+      backend_format: BackendFormat
+      finetuning_type: FinetuningType
+  iam:
+    standalone_api: true
+    subresources:
+      role_bindings:
+        models:
+          date_range_filter: DateRangeFilter
+          role_binding: RoleBinding
+          role_binding_filter: RoleBindingFilter
+          role_binding_param: RoleBindingInput
+          role_bindings_page: RoleBindingsPage
+        methods:
+          list: get /apis/auth/v2/iam/role-bindings
+          create: post /apis/auth/v2/iam/role-bindings
+          retrieve: get /apis/auth/v2/iam/role-bindings/{name}
+          delete: delete /apis/auth/v2/iam/role-bindings/{name}
+
+  projects:
+    standalone_api: true
+    models:
+      project: Project
+      project_param: ProjectInput
+      project_sort_field: ProjectSortField
+      project_update: ProjectUpdate
+      projects_page: ProjectsPage
+    methods:
+      create: post /apis/entities/v2/workspaces/{workspace}/projects
+      list: get /apis/entities/v2/workspaces/{workspace}/projects
+      retrieve: get /apis/entities/v2/workspaces/{workspace}/projects/{name}
+      update: put /apis/entities/v2/workspaces/{workspace}/projects/{name}
+      delete: delete /apis/entities/v2/workspaces/{workspace}/projects/{name}
+  members:
+    standalone_api: true
+    models:
+      workspace_member: WorkspaceMember
+      workspace_member_list_response: WorkspaceMemberListResponse
+      workspace_member_param: WorkspaceMemberInput
+      workspace_member_update: WorkspaceMemberUpdate
+    methods:
+      list: get /apis/entities/v2/workspaces/{workspace}/members
+      create: post /apis/entities/v2/workspaces/{workspace}/members
+      update: put /apis/entities/v2/workspaces/{workspace}/members/{principal_id}
+      delete: delete /apis/entities/v2/workspaces/{workspace}/members/{principal_id}
+  adapters:
+    standalone_api: true
+    models:
+      adapter_entity_filter: AdapterEntityFilter
+      adapters_page: AdaptersPage
+    methods:
+      create: post /apis/models/v2/workspaces/{workspace}/adapters
+      list: get /apis/models/v2/workspaces/{workspace}/adapters
+      retrieve: get /apis/models/v2/workspaces/{workspace}/adapters/{name}
+      delete: delete /apis/models/v2/workspaces/{workspace}/adapters/{name}
+      patch: patch /apis/models/v2/workspaces/{workspace}/adapters/{name}
+  intake:
+    standalone_api: true
+    subresources:
+      apps:
+        models:
+          app: App
+          app_filter: AppFilter
+          app_param: AppInput
+          app_sort_field: AppSortField
+          app_update: AppUpdate
+          apps_page: AppsPage
+        methods:
+          list: get /apis/intake/v2/workspaces/{workspace}/apps
+          create: post /apis/intake/v2/workspaces/{workspace}/apps
+          retrieve: get /apis/intake/v2/workspaces/{workspace}/apps/{name}
+          patch: patch /apis/intake/v2/workspaces/{workspace}/apps/{name}
+          delete: delete /apis/intake/v2/workspaces/{workspace}/apps/{name}
+        subresources:
+          tasks:
+            models:
+              task: Task
+              task_filter: TaskFilter
+              task_param: TaskInput
+              task_sort_field: TaskSortField
+              task_update: TaskUpdate
+              tasks_page: TasksPage
+            methods:
+              list: get /apis/intake/v2/workspaces/{workspace}/apps/{name}/tasks
+              create: post /apis/intake/v2/workspaces/{workspace}/apps/{name}/tasks
+              retrieve: get /apis/intake/v2/workspaces/{workspace}/apps/{app}/tasks/{name}
+              patch: patch /apis/intake/v2/workspaces/{workspace}/apps/{app}/tasks/{name}
+              delete: delete /apis/intake/v2/workspaces/{workspace}/apps/{app}/tasks/{name}
+      entries:
+        models:
+          entry: Entry
+          entry_context: EntryContext
+          entry_context_filter: EntryContextFilter
+          entry_data: EntryDataOutput
+          entry_data_param: EntryDataInput
+          entry_filter: EntryFilter
+          entry_param: EntryInput
+          entry_sort_field: EntrySortField
+          entry_update: EntryUpdate
+          entry_user_rating_filter: EntryUserRatingFilter
+          entrys_page: EntrysPage
+          evaluator_result_event: EvaluatorResultEvent
+          flexible_entry_request: FlexibleEntryRequestOutput
+          flexible_entry_request_param: FlexibleEntryRequestInput
+          flexible_entry_response: FlexibleEntryResponse
+          flexible_message: FlexibleMessage
+          message_role: MessageRole
+          reviewer_annotation_event: ReviewerAnnotationEvent
+          thumb_direction: ThumbDirection
+          usage: Usage
+          user_action_event: UserActionEvent
+          user_feedback_event: UserFeedbackEvent
+          user_rating: UserRating
+        methods:
+          list: get /apis/intake/v2/workspaces/{workspace}/entries
+          create: post /apis/intake/v2/workspaces/{workspace}/entries
+          retrieve: get /apis/intake/v2/workspaces/{workspace}/entries/{name}
+          patch: patch /apis/intake/v2/workspaces/{workspace}/entries/{name}
+          delete: delete /apis/intake/v2/workspaces/{workspace}/entries/{name}
+        subresources:
+          events:
+            models:
+              events_create_request: EventsCreateRequest
+            methods:
+              create: post /apis/intake/v2/workspaces/{workspace}/entries/{name}/events
+              delete: delete /apis/intake/v2/workspaces/{workspace}/entries/{entry}/events/{name}
+      evaluator_results:
+        models:
+          evaluator_result: EvaluatorResult
+          evaluator_result_data_type: EvaluatorResultDataType
+          evaluator_result_filter: EvaluatorResultFilter
+          evaluator_result_param: EvaluatorResultInput
+          evaluator_result_sort_field: EvaluatorResultSortField
+          evaluator_results_page: EvaluatorResultsPage
+          float_filter: FloatFilter
+        methods:
+          create: post /apis/intake/v2/workspaces/{workspace}/evaluator-results
+          list: get /apis/intake/v2/workspaces/{workspace}/evaluator-results
+          retrieve: get /apis/intake/v2/workspaces/{workspace}/evaluator-results/{evaluator_result_id}
+      exports:
+        models:
+          export_config_param: ExportConfigInput
+          export_preview_request: ExportPreviewRequest
+          export_preview_response: ExportPreviewResponse
+        methods:
+          preview: post /apis/intake/v2/workspaces/{workspace}/export/preview
+        subresources:
+          jobs:
+            models:
+              export_config: ExportConfig
+              export_job: ExportJob
+              export_job_filter: ExportJobFilter
+              export_job_param: ExportJobInput
+              export_job_sort_field: ExportJobSortField
+              export_jobs_page: ExportJobsPage
+              export_status_details: ExportStatusDetails
+              job_status: JobStatus
+            methods:
+              list: get /apis/intake/v2/workspaces/{workspace}/export/jobs
+              create: post /apis/intake/v2/workspaces/{workspace}/export/jobs
+              retrieve: get /apis/intake/v2/workspaces/{workspace}/export/jobs/{name}
+      ingest:
+        models:
+          evaluation_context: EvaluationContext
+        subresources:
+          atif:
+            models:
+              atif_agent: AtifAgent
+              atif_content_part: AtifContentPart
+              atif_content_part_image: AtifContentPartImage
+              atif_content_part_text: AtifContentPartText
+              atif_final_metrics: AtifFinalMetrics
+              atif_image_source: AtifImageSource
+              atif_ingest_request: AtifIngestRequest
+              atif_metrics: AtifMetrics
+              atif_observation: AtifObservation
+              atif_observation_result: AtifObservationResult
+              atif_step: AtifStep
+              atif_step_agent: AtifStepAgent
+              atif_step_system: AtifStepSystem
+              atif_step_user: AtifStepUser
+              atif_subagent_trajectory_ref: AtifSubagentTrajectoryRef
+              atif_tool_call: AtifToolCall
+            methods:
+              create: post /apis/intake/v2/workspaces/{workspace}/ingest/atif
+          chat_completions:
+            models:
+              chat_completions_ingest_param: ChatCompletionsIngestRequest
+              chat_completions_ingest_response: ChatCompletionsIngestResponse
+            methods:
+              create: post /apis/intake/v2/workspaces/{workspace}/ingest/chat-completions
+          otlp:
+            subresources:
+              v1:
+                subresources:
+                  traces:
+                    models:
+                      ingest_response: IngestResponse
+                    methods:
+                      create: post /apis/intake/v2/workspaces/{workspace}/ingest/otlp/v1/traces
+      spans:
+        models:
+          span: Span
+          span_evaluation_context: SpanEvaluationContext
+          span_filter: SpanFilter
+          span_kind: SpanKind
+          span_sort_field: SpanSortField
+          span_status: SpanStatus
+          spans_page: SpansPage
+        methods:
+          list: get /apis/intake/v2/workspaces/{workspace}/spans
+          retrieve: get /apis/intake/v2/workspaces/{workspace}/spans/{span_id}
+        subresources:
+          evaluator_results:
+            methods:
+              list: get /apis/intake/v2/workspaces/{workspace}/spans/{span_id}/evaluator-results

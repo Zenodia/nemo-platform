@@ -1,0 +1,96 @@
+dist_env:
+  backend: nccl
+  timeout_minutes: 30
+seed: 1111
+model:
+  pretrained_model_name_or_path: nvidia/llama-nemotron-embed-1b-v2
+  torch_dtype: auto
+  trust_remote_code: false
+  _target_: nemo_automodel.components.models.biencoder.NeMoAutoModelBiencoder.from_pretrained
+  share_encoder: true
+  add_linear_pooler: false
+  pooling: avg
+  l2_normalize: true
+  t: 0.02
+  train_n_passages: 5
+  eval_negative_size: 4
+  do_gradient_checkpointing: false
+  use_liger_kernel: true
+  use_sdpa_patching: true
+tokenizer:
+  _target_: nemo_automodel._transformers.auto_tokenizer.NeMoAutoTokenizer.from_pretrained
+  pretrained_model_name_or_path: nvidia/llama-nemotron-embed-1b-v2
+distributed:
+  _target_: nemo_automodel.components.distributed.fsdp2.FSDP2Manager
+  dp_size: 1
+  tp_size: 1
+  pp_size: 1
+  cp_size: 1
+  ep_size: null
+  sequence_parallel: false
+step_scheduler:
+  global_batch_size: 8
+  local_batch_size: 1
+  max_steps: 13
+  num_epochs: 1
+  val_every_steps: 12
+  ckpt_every_steps: 12
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 5.0e-06
+  weight_decay: 0.01
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+lr_scheduler:
+  lr_decay_style: cosine
+  lr_warmup_steps: 0
+checkpoint:
+  enabled: true
+  model_save_format: safetensors
+  checkpoint_dir: ./checkpoints
+  save_consolidated: true
+  dequantize_base_checkpoint: true
+  v4_compatible: false
+dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  dataset:
+    _target_: nemo_automodel.components.datasets.llm.retrieval_dataset_inline.make_retrieval_dataset
+    data_dir_list:
+    - ./sample-datasets/embedding/training.jsonl
+    data_type: train
+    train_n_passages: 5
+    seed: 1111
+    do_shuffle: true
+  collate_fn:
+    _target_: nemo_automodel.components.datasets.llm.RetrievalBiencoderCollator
+    q_max_len: 512
+    p_max_len: 512
+    query_prefix: 'query:'
+    passage_prefix: 'passage:'
+    pad_to_multiple_of: 8
+  shuffle: true
+  num_workers: 0
+validation_dataloader:
+  _target_: torchdata.stateful_dataloader.StatefulDataLoader
+  dataset:
+    _target_: nemo_automodel.components.datasets.llm.retrieval_dataset_inline.make_retrieval_dataset
+    data_dir_list:
+    - ./sample-datasets/embedding/validation.jsonl
+    data_type: eval
+    train_n_passages: 5
+    eval_negative_size: 4
+    seed: 1111
+    do_shuffle: false
+  collate_fn:
+    _target_: nemo_automodel.components.datasets.llm.RetrievalBiencoderCollator
+    q_max_len: 512
+    p_max_len: 512
+    query_prefix: 'query:'
+    passage_prefix: 'passage:'
+    padding: longest
+    pad_to_multiple_of: 8
+  batch_size: 1
+  shuffle: false
+  num_workers: 0

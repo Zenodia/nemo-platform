@@ -1,0 +1,19 @@
+docker-bake.hcl
+.venv
+.ruff_cache
+Dockerfile.bake
+services/customizer/tests
+**/Dockerfile*
+.dockerignore
+**/__pycache__
+**/node_modules
+sdk/python/nemo-platform/_dev/nmp
+# nemo-agents optimize-skills artifacts. These ephemeral run outputs can
+# contain root-owned files (the harbor agent runs as root inside the
+# container) that fail docker build context scanning with permission
+# denied; they're also pure noise in the build context regardless.
+jobs/
+runs/
+baselines/
+loop_state*.json
+.agent-improver-state*.json

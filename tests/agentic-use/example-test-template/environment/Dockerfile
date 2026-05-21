@@ -1,0 +1,12 @@
+# Use the pre-built nmp-agentic-base image
+# Build the base image first with: docker build -f Dockerfile.agentic-base -t nmp-agentic-base:latest .
+FROM nmp-agentic-base:latest
+
+# TODO: Add any additional setup needed for your test environment
+# Most tests can and probably should use the base image as-is without modifications
+
+# All configuration is inherited from the base image:
+# - NeMo Platform API server running on port 8080
+# - MCP server configured
+# - Python environment with SDK installed
+# - curl, uv, and other utilities available

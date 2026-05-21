@@ -1,0 +1,176 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * Scoped overrides for StudioDataView wrapping the local DataView/internal module.
+ *
+ * KUI DataView targets bg-surface-base, diffused pinned-column shadows, and a
+ * min-h-fit scroll wrapper. Studio needs a raised-surface "panel" appearance
+ * with a bordered table, tight layout, and subtle 1px pinned-column borders.
+ *
+ * This file sits outside Tailwind's @layer utilities, so its rules naturally
+ * win the cascade over KUI's layered Tailwind classes without needing !important.
+ */
+
+/* ─── Root container (DataView.Root's inner Flex) ───────────────────────────── */
+
+.studio-data-view-root {
+  height: 100%;
+  flex: 1; /* Fill constrained containers (e.g. modals) */
+  min-height: 0; /* Allow shrinking below content size in flex contexts */
+
+  /* TableContent wrapper (div > table) — the sole scrollable area. */
+  & div:has(> table.studio-data-view-table) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 114px; /* header row (57px) + at least 1 data row (57px) */
+
+    & > table.studio-data-view-table {
+      flex: 0 1 auto;
+    }
+
+    & > :not(table) {
+      flex: 1 1 auto;
+    }
+  }
+
+  /* KUI applies overflow:auto on <table>, which traps position:sticky on <thead>.
+     Override so sticky header anchors to the wrapper div's scroll instead. */
+  & table.studio-data-view-table {
+    overflow: visible;
+  }
+
+  /*
+   * Pinned-column width fix: prevent pinned columns from growing when the
+   * table is wider than the sum of column widths.
+   *
+   * KUI's non-virtualized table uses table-layout:fixed which distributes
+   * excess width proportionally across ALL columns. We convert rows to
+   * flex layout (mirroring KUI's virtualized path) only when pinned
+   * columns are present, then lock pinned cells while non-pinned grow.
+   */
+  & table:has([data-pinned]) {
+    width: max-content;
+    min-width: 100%;
+
+    & thead {
+      display: grid;
+    }
+
+    & thead tr,
+    & tbody tr {
+      display: flex;
+      width: 100%;
+    }
+
+    & th {
+      display: flex;
+      align-items: center;
+      &[data-pinned] {
+        justify-content: center;
+      }
+    }
+
+    /* Pinned columns: stay at configured size, don't grow */
+    & [data-pinned] {
+      flex: 0 0 auto;
+      align-content: center;
+      justify-items: center;
+      padding: 0;
+    }
+
+    /* Non-pinned columns: grow to fill remaining space */
+    & td:not([data-pinned]),
+    & th:not([data-pinned]) {
+      flex: 1 0 auto;
+      max-width: none !important;
+      align-content: center;
+    }
+
+    /* Fixed-width non-pinned columns: use configured size, don't grow */
+    & td:not([data-pinned]):has([data-fixed-width]),
+    & th:not([data-pinned]):has([data-fixed-width]) {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+/* ─── Toolbar ──────────────────────────────────────────────────────────────── */
+
+/* KUI's <DataView.Toolbar> forwards className to the outer <section>, not the
+   inner flex row that lays out the search bar, slotEnd, and filter toggle.
+   Scope the gap override to the inner .nv-table-toolbar-content. */
+.studio-data-view-root .nv-table-toolbar-content {
+  gap: var(--spacing-density-xl);
+}
+
+/* ─── Pagination ───────────────────────────────────────────────────────────── */
+
+/* Give pagination its own top border so it doesn't depend on the last
+   visible row to provide visual separation (e.g. when the table scrolls). */
+.studio-data-view-root .nv-pagination-root {
+  border-top: 1px solid var(--border-color-base);
+  flex-shrink: 0;
+}
+
+/* ─── TableContent ──────────────────────────────────────────────────────────── */
+
+table.studio-data-view-table.nv-table-root {
+  /* Surface color: override KUI's bg-surface-base */
+  & table,
+  & thead,
+  & thead th,
+  & td,
+  & tr,
+  & tbody {
+    background-color: var(--background-color-surface-raised);
+  }
+  & thead {
+    z-index: 11; /* Ensure the thead is above the tbody */
+    box-shadow: 0 1px 0 0 var(--border-color-base); /* Borders don't stick with sticky header, box shadow does */
+    border: 0;
+  }
+
+  /* Padding for the first column in the table, align text with Pagination */
+  & thead > tr > th:first-child:not([data-pinned='left']),
+  & tbody > tr > td:first-child:not([data-pinned='left']) {
+    padding-left: var(--spacing-density-2xl);
+  }
+
+  & tr:hover > td,
+  & tr[data-highlight] > td {
+    background-color: var(--background-color-interaction-hover);
+  }
+
+  /* Border is now on the outer Stack wrapper; remove the per-table border */
+  & table {
+    border: 0;
+  }
+
+  /*
+   * Pinned column indicators: replace KUI's diffused 4px shadow with a clean
+   * 1px border-style inset shadow using the standard border color token.
+   */
+  & [data-pinned='left'] {
+    box-shadow: inset -1px 0 0 0 var(--border-color-base);
+    margin-right: var(--spacing-density-xs);
+  }
+
+  & [data-pinned='right'] {
+    box-shadow: inset 1px 0 0 0 var(--border-color-base);
+  }
+
+  /* Sub-rows: darker background to visually nest under parent */
+  & tbody tr:has([data-sub-index]) > td {
+    background-color: var(--background-color-surface-sunken);
+  }
+
+  /* Keyboard focus: outline the row when a child keyboard target has focus */
+  & tbody tr:has(:focus-visible) {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: -2px;
+    outline-color: var(--border-color-interaction-hover);
+  }
+}

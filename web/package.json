@@ -1,0 +1,71 @@
+{
+  "name": "nemo-studio",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "A monorepo comprising the packages for nemo studio.",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm",
+    "test": "pnpm run -r test",
+    "test:e2e": "pnpm run -r test:e2e",
+    "build": "pnpm run -r build",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --fix --report-unused-disable-directives --max-warnings 0",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "check": "pnpm run -r check",
+    "gen": "pnpm --filter @nemo/sdk gen:all",
+    "gen:check": "pnpm tsx packages/scripts/src/check-generated-files.ts",
+    "deps:studio": "pnpm tsx packages/scripts/src/deps-check.ts packages/studio",
+    "deps:common": "pnpm tsx packages/scripts/src/deps-check.ts packages/common",
+    "deps:scripts": "pnpm tsx packages/scripts/src/deps-check.ts packages/scripts",
+    "dev": "concurrently -n app,storybook \"pnpm dev:app\" \"pnpm dev:storybook --no-open\"",
+    "dev:app": "pnpm --filter nemo-studio-ui start",
+    "dev:storybook": "pnpm --filter @nemo/storybook storybook",
+    "stg": "pnpm --filter nemo-studio-ui start:stg",
+    "cherry": "pnpm tsx packages/scripts/src/cherry-pick.ts",
+    "create-release": "pnpm tsx packages/scripts/src/create-release.ts"
+  },
+  "devDependencies": {
+    "@eslint-react/eslint-plugin": "^4.2.3",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@tanstack/eslint-plugin-query": "^5.91.3",
+    "@types/node": "catalog:",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "@vitest/eslint-plugin": "catalog:",
+    "concurrently": "^9.2.0",
+    "eslint": "10.2.1",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-no-only-tests": "^3.3.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "eslint-plugin-testing-library": "^7.15.4",
+    "eslint-plugin-unused-imports": "^4.1.4",
+    "globals": "^15.15.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "pnpm": "^10.32.1",
+    "prettier": "^3.6.2",
+    "tsx": "catalog:",
+    "typescript-eslint": "^8.59.0"
+  },
+  "engines": {
+    "node": ">=22.18.0 <23",
+    "pnpm": ">=10.32.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "^19.2.5",
+      "react-dom": "^19.2.5",
+      "dompurify": "^3.4.1",
+      "follow-redirects": "^1.16.0",
+      "fast-uri": ">=3.1.2",
+      "postcss": "^8.5.10",
+      "protobufjs": "^8.0.2",
+      "@protobufjs/utf8": "^1.1.1"
+    }
+  },
+  "packageManager": "pnpm@10.32.1"
+}

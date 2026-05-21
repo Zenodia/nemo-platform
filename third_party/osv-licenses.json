@@ -1,0 +1,5199 @@
+{
+  "results": [
+    {
+      "source": {
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "absl-py",
+            "version": "2.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aioboto3",
+            "version": "15.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiobotocore",
+            "version": "2.25.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiofile",
+            "version": "3.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiofiles",
+            "version": "25.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiohappyeyeballs",
+            "version": "2.6.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "PSF-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiohttp",
+            "version": "3.13.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 AND MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiohttp-retry",
+            "version": "2.9.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "aioitertools",
+            "version": "0.13.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiosignal",
+            "version": "1.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "aiosqlite",
+            "version": "0.22.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "alembic",
+            "version": "1.18.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "amqp",
+            "version": "5.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "annotated-doc",
+            "version": "0.0.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "annotated-types",
+            "version": "0.7.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "annoy",
+            "version": "1.17.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "anthropic",
+            "version": "0.101.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "anyascii",
+            "version": "0.3.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "ISC"
+          ]
+        },
+        {
+          "package": {
+            "name": "anyio",
+            "version": "4.13.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "appdirs",
+            "version": "1.4.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "asgiref",
+            "version": "3.11.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "async-timeout",
+            "version": "5.0.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "asyncpg",
+            "version": "0.31.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "attrs",
+            "version": "26.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "authlib",
+            "version": "1.7.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "backports-tarfile",
+            "version": "1.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "base58",
+            "version": "2.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "beartype",
+            "version": "0.22.9",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "beautifulsoup4",
+            "version": "4.14.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "billiard",
+            "version": "4.2.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "boto3",
+            "version": "1.40.61",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "botocore",
+            "version": "1.40.61",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "botocore-stubs",
+            "version": "1.42.41",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "cachetools",
+            "version": "7.0.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "caio",
+            "version": "0.9.25",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UNKNOWN"
+          ]
+        },
+        {
+          "package": {
+            "name": "celery",
+            "version": "5.6.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "certifi",
+            "version": "2026.2.25",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MPL-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "cffi",
+            "version": "2.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "chardet",
+            "version": "5.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "charset-normalizer",
+            "version": "3.4.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "circuitbreaker",
+            "version": "2.1.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "click",
+            "version": "8.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "click-didyoumean",
+            "version": "0.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "click-plugins",
+            "version": "1.1.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "click-repl",
+            "version": "0.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "clickhouse-connect",
+            "version": "0.15.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "colorama",
+            "version": "0.4.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "colorlog",
+            "version": "6.10.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "cryptography",
+            "version": "46.0.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 OR BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "cyclopts",
+            "version": "4.10.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "data-designer",
+            "version": "0.5.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "data-designer-config",
+            "version": "0.5.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "data-designer-engine",
+            "version": "0.5.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "dataclasses-json",
+            "version": "0.6.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "datasets",
+            "version": "4.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "diff-cover",
+            "version": "10.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "dill",
+            "version": "0.3.8",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "diskcache",
+            "version": "5.6.3",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-04-24T00:14:19Z",
+              "published": "2026-02-11T21:30:39Z",
+              "schema_version": "1.7.3",
+              "id": "GHSA-w8v5-vhqr-4h9v",
+              "aliases": [
+                "CVE-2025-69872"
+              ],
+              "related": [
+                "CGA-fh44-295v-vhjp"
+              ],
+              "summary": "DiskCache has unsafe pickle deserialization",
+              "details": "DiskCache (python-diskcache) through 5.6.3 uses Python pickle for serialization by default. An attacker with write access to the cache directory can achieve arbitrary code execution when a victim application reads from the cache.",
+              "severity": [
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:A/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N/E:P"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "diskcache",
+                    "purl": "pkg:pypi/diskcache"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "last_affected": "5.6.3"
+                        }
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.1.0",
+                    "0.1.2",
+                    "0.1.3",
+                    "0.1.4",
+                    "0.1.5",
+                    "0.1.6",
+                    "0.1.7",
+                    "0.1.8",
+                    "0.2.0",
+                    "0.2.1",
+                    "0.2.10",
+                    "0.2.2",
+                    "0.2.3",
+                    "0.2.4",
+                    "0.2.6",
+                    "0.2.7",
+                    "0.2.8",
+                    "0.2.9",
+                    "0.3.0",
+                    "0.3.1",
+                    "0.4.0",
+                    "0.5.0",
+                    "0.6.0",
+                    "0.7.0",
+                    "0.7.1",
+                    "0.9.0",
+                    "1.0.0",
+                    "1.1.0",
+                    "1.2.0",
+                    "1.3.1",
+                    "1.3.3",
+                    "1.3.4",
+                    "1.3.5",
+                    "1.4.0",
+                    "1.5.0",
+                    "1.5.2",
+                    "1.5.3",
+                    "1.6.0",
+                    "1.6.1",
+                    "1.6.2",
+                    "1.6.3",
+                    "1.6.4",
+                    "1.6.5",
+                    "1.6.6",
+                    "1.6.7",
+                    "1.7.0",
+                    "2.0.2",
+                    "2.1.0",
+                    "2.2.0",
+                    "2.3.0",
+                    "2.3.1",
+                    "2.4.0",
+                    "2.4.1",
+                    "2.5.1",
+                    "2.5.2",
+                    "2.6.0",
+                    "2.6.4",
+                    "2.6.5",
+                    "2.7.0",
+                    "2.8.2",
+                    "2.8.3",
+                    "2.9.0",
+                    "3.0.0",
+                    "3.0.1",
+                    "3.0.3",
+                    "3.0.4",
+                    "3.0.5",
+                    "3.0.6",
+                    "3.1.0",
+                    "3.1.1",
+                    "4.0.0",
+                    "4.1.0",
+                    "5.0.0",
+                    "5.0.1",
+                    "5.0.2",
+                    "5.0.3",
+                    "5.1.0",
+                    "5.2.1",
+                    "5.3.0",
+                    "5.4.0",
+                    "5.5.1",
+                    "5.6.0",
+                    "5.6.1",
+                    "5.6.3"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/02/GHSA-w8v5-vhqr-4h9v/GHSA-w8v5-vhqr-4h9v.json"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2025-69872"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/EthanKim88/ethan-cve-disclosures/blob/main/CVE-2025-69872-DiskCache-Pickle-Deserialization.md"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/grantjenks/python-diskcache"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-502"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-02-12T03:09:56Z",
+                "nvd_published_at": "2026-02-11T19:15:50Z",
+                "severity": "MODERATE"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-w8v5-vhqr-4h9v"
+              ],
+              "aliases": [
+                "CVE-2025-69872",
+                "GHSA-w8v5-vhqr-4h9v"
+              ],
+              "max_severity": "5.2"
+            }
+          ],
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "distro",
+            "version": "1.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "dnspython",
+            "version": "2.8.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "ISC"
+          ]
+        },
+        {
+          "package": {
+            "name": "docker",
+            "version": "7.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "docstring-parser",
+            "version": "0.17.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "docutils",
+            "version": "0.22.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "duckdb",
+            "version": "1.5.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "durationpy",
+            "version": "0.10",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "email-validator",
+            "version": "2.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Unlicense"
+          ]
+        },
+        {
+          "package": {
+            "name": "exa-py",
+            "version": "1.16.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "exceptiongroup",
+            "version": "1.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "expandvars",
+            "version": "1.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "faker",
+            "version": "20.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastapi",
+            "version": "0.129.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastapi-cli",
+            "version": "0.0.24",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastapi-cloud-cli",
+            "version": "0.15.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastar",
+            "version": "0.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastembed",
+            "version": "0.8.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastmcp",
+            "version": "3.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "fastuuid",
+            "version": "0.14.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "filelock",
+            "version": "3.25.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "filetype",
+            "version": "1.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "flatbuffers",
+            "version": "25.12.19",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "flower",
+            "version": "2.0.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "frozenlist",
+            "version": "1.8.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "fsspec",
+            "version": "2025.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "gitdb",
+            "version": "4.0.12",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "gitpython",
+            "version": "3.1.50",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "googleapis-common-protos",
+            "version": "1.73.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "greenlet",
+            "version": "3.3.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT AND PSF-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "grpcio",
+            "version": "1.80.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "gunicorn",
+            "version": "25.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "h11",
+            "version": "0.16.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "hf-xet",
+            "version": "1.4.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "httpcore",
+            "version": "1.0.9",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "httptools",
+            "version": "0.7.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "httpx",
+            "version": "0.28.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "httpx-retries",
+            "version": "0.4.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "httpx-sse",
+            "version": "0.4.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "huggingface-hub",
+            "version": "1.15.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "humanize",
+            "version": "4.15.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "hvac",
+            "version": "2.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "idna",
+            "version": "3.15",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "importlib-metadata",
+            "version": "8.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "iniconfig",
+            "version": "2.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "instructor",
+            "version": "1.11.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "isodate",
+            "version": "0.7.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "jaraco-classes",
+            "version": "3.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jaraco-context",
+            "version": "6.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jaraco-functools",
+            "version": "4.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jeepney",
+            "version": "0.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jinja2",
+            "version": "3.1.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "jiter",
+            "version": "0.10.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jmespath",
+            "version": "1.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "joblib",
+            "version": "1.5.3",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:02Z",
+              "published": "2024-05-17T19:15:07Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2024-277",
+              "aliases": [
+                "CVE-2024-34997"
+              ],
+              "details": "joblib v1.4.2 was discovered to contain a deserialization vulnerability via the component joblib.numpy_pickle::NumpyArrayWrapper().read_array(). NOTE: this is disputed by the supplier because NumpyArrayWrapper is only used during caching of trusted content.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "joblib",
+                    "purl": "pkg:pypi/joblib"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.10.0",
+                    "0.10.2",
+                    "0.10.3",
+                    "0.11",
+                    "0.11a3",
+                    "0.12.0",
+                    "0.12.1",
+                    "0.12.2",
+                    "0.12.3",
+                    "0.12.4",
+                    "0.12.5",
+                    "0.13.0",
+                    "0.13.1",
+                    "0.13.2",
+                    "0.14.0",
+                    "0.14.1",
+                    "0.15.0",
+                    "0.15.1",
+                    "0.16.0",
+                    "0.17.0",
+                    "0.1a",
+                    "0.1a.dev",
+                    "0.2a.dev",
+                    "0.3.1a.dev",
+                    "0.3.2.dev",
+                    "0.3.2a.dev",
+                    "0.3.2b.dev",
+                    "0.3.2c.dev",
+                    "0.3.2d",
+                    "0.3.2d.dev",
+                    "0.3.2e.dev",
+                    "0.3.2f",
+                    "0.3.2f.dev",
+                    "0.3.2g.dev",
+                    "0.3.3a.dev",
+                    "0.3.3b.dev",
+                    "0.3.3c.dev",
+                    "0.3.4.dev",
+                    "0.3.5.dev",
+                    "0.3.6.dev",
+                    "0.3.7.dev",
+                    "0.3a.dev",
+                    "0.4.0.dev",
+                    "0.4.1.dev",
+                    "0.4.2.dev",
+                    "0.4.3.dev",
+                    "0.4.4.dev",
+                    "0.4.5.dev",
+                    "0.4.6.dev",
+                    "0.5.0.dev",
+                    "0.5.0a.dev",
+                    "0.5.1.dev",
+                    "0.5.2.dev",
+                    "0.5.3.dev",
+                    "0.5.4.dev",
+                    "0.5.5.dev",
+                    "0.5.6.dev",
+                    "0.5.7",
+                    "0.5.7.dev",
+                    "0.5.7a",
+                    "0.5.7a.dev",
+                    "0.5.7b.dev",
+                    "0.6.0",
+                    "0.6.0a",
+                    "0.6.0b",
+                    "0.6.0b2",
+                    "0.6.0b3",
+                    "0.6.1",
+                    "0.6.2",
+                    "0.6.3",
+                    "0.6.4",
+                    "0.6.5",
+                    "0.7.0a",
+                    "0.7.0b",
+                    "0.7.0c",
+                    "0.7.0d",
+                    "0.7.1",
+                    "0.8.0",
+                    "0.8.0a",
+                    "0.8.0a2",
+                    "0.8.0a3",
+                    "0.8.1",
+                    "0.8.2",
+                    "0.8.3",
+                    "0.8.3-r1",
+                    "0.8.4",
+                    "0.9.0b2",
+                    "0.9.0b3",
+                    "0.9.0b4",
+                    "0.9.1",
+                    "0.9.2",
+                    "0.9.3",
+                    "0.9.4",
+                    "1.0.0",
+                    "1.0.1",
+                    "1.1.0",
+                    "1.1.0a0",
+                    "1.1.1",
+                    "1.2.0",
+                    "1.3.0",
+                    "1.3.1",
+                    "1.3.2",
+                    "1.4.0",
+                    "1.4.2",
+                    "1.5.0",
+                    "1.5.1",
+                    "1.5.2",
+                    "1.5.3"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/joblib/PYSEC-2024-277.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/joblib/joblib/issues/1582"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://github.com/joblib/joblib/issues/977"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2024-277"
+              ],
+              "aliases": [
+                "CVE-2024-34997",
+                "PYSEC-2024-277"
+              ],
+              "max_severity": "7.5"
+            }
+          ],
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "joserfc",
+            "version": "1.6.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "json-repair",
+            "version": "0.58.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonpatch",
+            "version": "1.33",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonpath-ng",
+            "version": "1.8.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonpath-rust-bindings",
+            "version": "1.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UNKNOWN"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonpointer",
+            "version": "3.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonref",
+            "version": "1.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonschema",
+            "version": "4.23.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonschema-path",
+            "version": "0.3.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "jsonschema-specifications",
+            "version": "2025.9.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "keyring",
+            "version": "25.7.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "kombu",
+            "version": "5.6.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "kubernetes",
+            "version": "35.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain",
+            "version": "1.2.14",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-aws",
+            "version": "1.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-classic",
+            "version": "1.0.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-community",
+            "version": "0.3.27",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:03Z",
+              "published": "2024-03-01T12:15:48Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2024-278",
+              "aliases": [
+                "CVE-2024-2057"
+              ],
+              "details": "A vulnerability was found in LangChain langchain_community 0.0.26. It has been classified as critical. Affected is the function load_local in the library libs/community/langchain_community/retrievers/tfidf.py of the component TFIDFRetriever. The manipulation leads to server-side request forgery. It is possible to launch the attack remotely. The exploit has been disclosed to the public and may be used. Upgrading to version 0.0.27 is able to address this issue. It is recommended to upgrade the affected component. The identifier of this vulnerability is VDB-255372.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "langchain-community",
+                    "purl": "pkg:pypi/langchain-community"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.0.1",
+                    "0.0.10",
+                    "0.0.11",
+                    "0.0.12",
+                    "0.0.13",
+                    "0.0.14",
+                    "0.0.15",
+                    "0.0.16",
+                    "0.0.17",
+                    "0.0.18",
+                    "0.0.19",
+                    "0.0.1rc1",
+                    "0.0.1rc2",
+                    "0.0.2",
+                    "0.0.20",
+                    "0.0.21",
+                    "0.0.22",
+                    "0.0.23",
+                    "0.0.24",
+                    "0.0.25",
+                    "0.0.26",
+                    "0.0.27",
+                    "0.0.28",
+                    "0.0.29",
+                    "0.0.3",
+                    "0.0.30",
+                    "0.0.31",
+                    "0.0.32",
+                    "0.0.33",
+                    "0.0.34",
+                    "0.0.35",
+                    "0.0.36",
+                    "0.0.37",
+                    "0.0.38",
+                    "0.0.4",
+                    "0.0.5",
+                    "0.0.6",
+                    "0.0.7",
+                    "0.0.8",
+                    "0.0.9",
+                    "0.2.0",
+                    "0.2.0rc1",
+                    "0.2.1",
+                    "0.2.10",
+                    "0.2.11",
+                    "0.2.12",
+                    "0.2.13",
+                    "0.2.14",
+                    "0.2.15",
+                    "0.2.16",
+                    "0.2.17",
+                    "0.2.18",
+                    "0.2.19",
+                    "0.2.2",
+                    "0.2.3",
+                    "0.2.4",
+                    "0.2.5",
+                    "0.2.6",
+                    "0.2.7",
+                    "0.2.9",
+                    "0.3.0",
+                    "0.3.0.dev1",
+                    "0.3.0.dev2",
+                    "0.3.1",
+                    "0.3.10",
+                    "0.3.11",
+                    "0.3.12",
+                    "0.3.13",
+                    "0.3.14",
+                    "0.3.15",
+                    "0.3.16",
+                    "0.3.17",
+                    "0.3.17rc1",
+                    "0.3.18",
+                    "0.3.19",
+                    "0.3.2",
+                    "0.3.20",
+                    "0.3.21",
+                    "0.3.22",
+                    "0.3.23",
+                    "0.3.24",
+                    "0.3.25",
+                    "0.3.26",
+                    "0.3.27",
+                    "0.3.28",
+                    "0.3.29",
+                    "0.3.3",
+                    "0.3.30",
+                    "0.3.31",
+                    "0.3.4",
+                    "0.3.5",
+                    "0.3.6",
+                    "0.3.7",
+                    "0.3.8",
+                    "0.3.9",
+                    "0.4",
+                    "0.4.1",
+                    "1.0.0a1"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/langchain-community/PYSEC-2024-278.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/bayuncao/vul-cve-16/tree/main/PoC.pkl"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://vuldb.com/?ctiid.255372"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://vuldb.com/?id.255372"
+                },
+                {
+                  "type": "FIX",
+                  "url": "https://github.com/langchain-ai/langchain/pull/18695"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/bayuncao/vul-cve-16"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2024-278"
+              ],
+              "aliases": [
+                "CVE-2024-2057",
+                "PYSEC-2024-278"
+              ],
+              "max_severity": "9.8"
+            }
+          ],
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-core",
+            "version": "1.3.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-exa",
+            "version": "1.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-huggingface",
+            "version": "1.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-litellm",
+            "version": "0.6.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-milvus",
+            "version": "0.3.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-nvidia-ai-endpoints",
+            "version": "1.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-oci",
+            "version": "0.2.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UPL-1.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-openai",
+            "version": "1.2.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-protocol",
+            "version": "0.0.15",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-tavily",
+            "version": "0.2.18",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langchain-text-splitters",
+            "version": "1.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langgraph",
+            "version": "1.1.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langgraph-checkpoint",
+            "version": "4.0.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langgraph-prebuilt",
+            "version": "1.0.8",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langgraph-sdk",
+            "version": "0.3.12",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "langsmith",
+            "version": "0.8.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "lark",
+            "version": "1.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "lark",
+            "version": "1.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "litellm",
+            "version": "1.83.14",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "loguru",
+            "version": "0.7.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "lxml",
+            "version": "6.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "lz4",
+            "version": "4.4.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "mako",
+            "version": "1.3.12",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "markdown-it-py",
+            "version": "4.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "marko",
+            "version": "2.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "markupsafe",
+            "version": "3.0.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "marshmallow",
+            "version": "3.26.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "mcp",
+            "version": "1.26.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "mdurl",
+            "version": "0.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "mmh3",
+            "version": "5.2.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "more-itertools",
+            "version": "10.8.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "mpmath",
+            "version": "1.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "multidict",
+            "version": "6.7.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "multiprocess",
+            "version": "0.70.16",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "mypy-extensions",
+            "version": "1.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "nemo-anonymizer",
+            "version": "0.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nemo-safe-synthesizer",
+            "version": "0.0.4rc0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nemoguardrails",
+            "version": "0.21.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "nest-asyncio",
+            "version": "1.6.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "nest-asyncio2",
+            "version": "1.7.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "networkx",
+            "version": "3.6.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "ngcsdk",
+            "version": "4.16.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nltk",
+            "version": "3.9.4",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:09Z",
+              "published": "2026-03-09T20:16:05Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2026-97",
+              "aliases": [
+                "CVE-2026-0846",
+                "GHSA-h8wq-7xc4-p3qx"
+              ],
+              "details": "A vulnerability in the `filestring()` function of the `nltk.util` module in nltk version 3.9.2 allows arbitrary file read due to improper validation of input paths. The function directly opens files specified by user input without sanitization, enabling attackers to access sensitive system files by providing absolute paths or traversal paths. This vulnerability can be exploited locally or remotely, particularly in scenarios where the function is used in web APIs or other interfaces that accept user-supplied input.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "nltk",
+                    "purl": "pkg:pypi/nltk"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.8",
+                    "0.9",
+                    "0.9.3",
+                    "0.9.4",
+                    "0.9.5",
+                    "0.9.6",
+                    "0.9.7",
+                    "0.9.8",
+                    "0.9.9",
+                    "2.0.1",
+                    "2.0.1rc1",
+                    "2.0.1rc2-git",
+                    "2.0.1rc3",
+                    "2.0.1rc4",
+                    "2.0.2",
+                    "2.0.3",
+                    "2.0.4",
+                    "2.0.5",
+                    "2.0b4",
+                    "2.0b5",
+                    "2.0b6",
+                    "2.0b7",
+                    "2.0b8",
+                    "2.0b9",
+                    "3.0.0",
+                    "3.0.0b1",
+                    "3.0.0b2",
+                    "3.0.1",
+                    "3.0.2",
+                    "3.0.3",
+                    "3.0.4",
+                    "3.0.5",
+                    "3.1",
+                    "3.2",
+                    "3.2.1",
+                    "3.2.2",
+                    "3.2.3",
+                    "3.2.4",
+                    "3.2.5",
+                    "3.3",
+                    "3.4",
+                    "3.4.1",
+                    "3.4.2",
+                    "3.4.3",
+                    "3.4.4",
+                    "3.4.5",
+                    "3.5",
+                    "3.5b1",
+                    "3.6",
+                    "3.6.1",
+                    "3.6.2",
+                    "3.6.3",
+                    "3.6.4",
+                    "3.6.5",
+                    "3.6.6",
+                    "3.6.7",
+                    "3.7",
+                    "3.8",
+                    "3.8.1",
+                    "3.9",
+                    "3.9.1",
+                    "3.9.2",
+                    "3.9.3",
+                    "3.9.4",
+                    "3.9b1"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/nltk/PYSEC-2026-97.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "EVIDENCE",
+                  "url": "https://huntr.com/bounties/007b84f8-418e-4300-99d0-bf504c2f97eb"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2026-97"
+              ],
+              "aliases": [
+                "CVE-2026-0846",
+                "GHSA-h8wq-7xc4-p3qx",
+                "PYSEC-2026-97"
+              ],
+              "max_severity": "7.5"
+            }
+          ],
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "numpy",
+            "version": "2.4.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "0BSD AND BSD-3-Clause AND CC0-1.0 AND MIT AND Zlib"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-ml-py",
+            "version": "13.595.45",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-atif",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-config-optimizer",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-core",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-eval",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-langchain",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "nvidia-nat-opentelemetry",
+            "version": "1.7.0rc1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "oauthlib",
+            "version": "3.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "oci",
+            "version": "2.174.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "oci-openai",
+            "version": "1.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UPL-1.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "onnxruntime",
+            "version": "1.24.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UNKNOWN"
+          ]
+        },
+        {
+          "package": {
+            "name": "openai",
+            "version": "2.35.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "openapi-pydantic",
+            "version": "0.5.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "openevals",
+            "version": "0.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "openinference-semantic-conventions",
+            "version": "0.1.29",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-api",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-distro",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-exporter-otlp",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-exporter-otlp-proto-common",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-exporter-otlp-proto-grpc",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-exporter-otlp-proto-http",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-exporter-prometheus",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-asgi",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-fastapi",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-httpx",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-openai",
+            "version": "0.57.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-requests",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-sqlalchemy",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-instrumentation-system-metrics",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-processor-baggage",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-proto",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-sdk",
+            "version": "1.40.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-semantic-conventions",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-semantic-conventions-ai",
+            "version": "0.5.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "opentelemetry-util-http",
+            "version": "0.61b0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "optuna",
+            "version": "4.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "orjson",
+            "version": "3.11.8",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MPL-2.0 AND (Apache-2.0 OR MIT)"
+          ]
+        },
+        {
+          "package": {
+            "name": "ormsgpack",
+            "version": "1.12.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 OR MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "packaging",
+            "version": "26.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 OR BSD-2-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "pandas",
+            "version": "2.3.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "pathable",
+            "version": "0.4.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "pathspec",
+            "version": "1.0.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MPL-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "pillow",
+            "version": "12.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT-CMU"
+          ]
+        },
+        {
+          "package": {
+            "name": "pip",
+            "version": "26.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pkce",
+            "version": "1.0.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pkginfo",
+            "version": "1.12.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "platformdirs",
+            "version": "4.9.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pluggy",
+            "version": "1.6.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "polling2",
+            "version": "0.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "portalocker",
+            "version": "3.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "prettytable",
+            "version": "3.17.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "prometheus-client",
+            "version": "0.24.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 AND BSD-2-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "prometheus-fastapi-instrumentator",
+            "version": "7.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "ISC"
+          ]
+        },
+        {
+          "package": {
+            "name": "prompt-toolkit",
+            "version": "3.0.52",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "propcache",
+            "version": "0.4.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "protobuf",
+            "version": "6.33.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "psutil",
+            "version": "7.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "psycopg2-binary",
+            "version": "2.9.11",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "py-key-value-aio",
+            "version": "0.4.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "py-rust-stemmers",
+            "version": "0.1.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UNKNOWN"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyarrow",
+            "version": "19.0.1",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:11Z",
+              "published": "2026-02-17T14:16:01Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2026-113",
+              "aliases": [
+                "CVE-2026-25087"
+              ],
+              "details": "Use After Free vulnerability in Apache Arrow C++.\n\nThis issue affects Apache Arrow C++ from 15.0.0 through 23.0.0. It can be triggered when reading an Arrow IPC file (but not an IPC stream) with pre-buffering enabled, if the IPC file contains data with variadic buffers (such as Binary View and String View data). Depending on the number of variadic buffers in a record batch column and on the temporal sequence of multi-threaded IO, a write to a dangling pointer could occur. The value (a `std::shared_ptr<Buffer>` object)\u00a0that is written to the dangling pointer is not under direct control of the attacker.\n\nPre-buffering is disabled by default but can be enabled using a specific C++ API call (`RecordBatchFileReader::PreBufferMetadata`). The functionality is not exposed in language bindings (Python, Ruby, C GLib), so these bindings are not vulnerable.\n\nThe most likely consequence of this issue would be random crashes or memory corruption when reading specific kinds of IPC files. If the application allows ingesting IPC files from untrusted sources, this could plausibly be exploited for denial of service. Inducing more targeted kinds of misbehavior (such as confidential data extraction from the running process) depends on memory allocation and multi-threaded IO temporal patterns that are unlikely to be easily controlled by an attacker.\n\nAdvice for users of Arrow C++:\n\n1. check whether you enable pre-buffering on the IPC file reader (using\u00a0`RecordBatchFileReader::PreBufferMetadata`)\n\n2. if so, either disable pre-buffering (which may have adverse performance consequences), or switch to Arrow 23.0.1 which is not vulnerable",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "pyarrow",
+                    "purl": "pkg:pypi/pyarrow"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "15.0.0"
+                        },
+                        {
+                          "fixed": "23.0.1"
+                        }
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "15.0.0",
+                    "15.0.1",
+                    "15.0.2",
+                    "16.0.0",
+                    "16.1.0",
+                    "17.0.0",
+                    "18.0.0",
+                    "18.1.0",
+                    "19.0.0",
+                    "19.0.1",
+                    "20.0.0",
+                    "21.0.0",
+                    "22.0.0",
+                    "23.0.0"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/pyarrow/PYSEC-2026-113.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "http://www.openwall.com/lists/oss-security/2026/02/17/4"
+                },
+                {
+                  "type": "ADVISORY",
+                  "url": "https://lists.apache.org/thread/mpm4ld1qony30tchfpjtk5b11tcyvmwh"
+                },
+                {
+                  "type": "FIX",
+                  "url": "https://github.com/apache/arrow/pull/48925"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2026-113"
+              ],
+              "aliases": [
+                "CVE-2026-25087",
+                "PYSEC-2026-113"
+              ],
+              "max_severity": "7.0"
+            }
+          ],
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "pycparser",
+            "version": "3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "pydantic",
+            "version": "2.12.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pydantic-core",
+            "version": "2.41.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pydantic-extra-types",
+            "version": "2.11.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pydantic-settings",
+            "version": "2.8.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pygments",
+            "version": "2.20.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-2-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyjwt",
+            "version": "2.12.1",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:15Z",
+              "published": "2025-07-31T21:15:27Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2025-183",
+              "aliases": [
+                "CVE-2025-45768"
+              ],
+              "details": "pyjwt v2.10.1 was discovered to contain weak encryption. NOTE: this is disputed by the Supplier because the key length is chosen by the application that uses the library (admittedly, library users may benefit from a minimum value and a mechanism for opting in to strict enforcement).",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "pyjwt",
+                    "purl": "pkg:pypi/pyjwt"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.1.1",
+                    "0.1.2",
+                    "0.1.3",
+                    "0.1.4",
+                    "0.1.5",
+                    "0.1.6",
+                    "0.1.7",
+                    "0.1.8",
+                    "0.1.9",
+                    "0.2.0",
+                    "0.2.1",
+                    "0.2.3",
+                    "0.3.0",
+                    "0.3.1",
+                    "0.3.2",
+                    "0.4.0",
+                    "0.4.1",
+                    "0.4.2",
+                    "0.4.3",
+                    "1.0.0",
+                    "1.0.1",
+                    "1.1.0",
+                    "1.3.0",
+                    "1.4.0",
+                    "1.4.1",
+                    "1.4.2",
+                    "1.5.0",
+                    "1.5.1",
+                    "1.5.2",
+                    "1.5.3",
+                    "1.6.0",
+                    "1.6.1",
+                    "1.6.3",
+                    "1.6.4",
+                    "1.7.0",
+                    "1.7.1",
+                    "2.0.0",
+                    "2.0.0a1",
+                    "2.0.0a2",
+                    "2.0.1",
+                    "2.1.0",
+                    "2.10.0",
+                    "2.10.1",
+                    "2.11.0",
+                    "2.12.0",
+                    "2.12.1",
+                    "2.2.0",
+                    "2.3.0",
+                    "2.4.0",
+                    "2.5.0",
+                    "2.6.0",
+                    "2.7.0",
+                    "2.8.0",
+                    "2.9.0"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/pyjwt/PYSEC-2025-183.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/jpadilla"
+                },
+                {
+                  "type": "REPORT",
+                  "url": "https://gist.github.com/ZupeiNie/6f65e564f2067b876321d3dfdbb76569"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/jpadilla/pyjwt"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2025-183"
+              ],
+              "aliases": [
+                "CVE-2025-45768",
+                "PYSEC-2025-183"
+              ],
+              "max_severity": "7.0"
+            }
+          ],
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyleak",
+            "version": "0.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "UNKNOWN"
+          ]
+        },
+        {
+          "package": {
+            "name": "pymilvus",
+            "version": "2.6.9",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyopenssl",
+            "version": "26.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyperclip",
+            "version": "1.11.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "pytest",
+            "version": "9.0.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "python-box",
+            "version": "7.4.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "python-dateutil",
+            "version": "2.9.0.post0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "python-dotenv",
+            "version": "1.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "python-json-logger",
+            "version": "3.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "python-multipart",
+            "version": "0.0.27",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "pytz",
+            "version": "2026.1.post1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "pyyaml",
+            "version": "6.0.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "ragas",
+            "version": "0.3.5",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-04-22T22:18:53Z",
+              "published": "2026-04-20T00:30:13Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-95ww-475f-pr4f",
+              "aliases": [
+                "CVE-2026-6587"
+              ],
+              "summary": "RAGAS has SSRF via Multi-Modal Faithfulness Collections Module",
+              "details": "A security flaw has been discovered in vibrantlabsai RAGAS up to 0.4.3. The affected element is the function _try_process_local_file/_try_process_url of the file src/ragas/metrics/collections/multi_modal_faithfulness/util.py of the component Collections Module. Performing a manipulation of the argument retrieved_contexts results in server-side request forgery. The attack can be initiated remotely. The exploit has been released to the public and may be used for attacks. The security patch for CVE-2025-45691 was applied to a different module only. The vendor was contacted early about this disclosure but did not respond in any way.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L"
+                },
+                {
+                  "type": "CVSS_V4",
+                  "score": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N/E:P"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "ragas",
+                    "purl": "pkg:pypi/ragas"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0.2.3"
+                        },
+                        {
+                          "last_affected": "0.4.3"
+                        }
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.2.10",
+                    "0.2.11",
+                    "0.2.12",
+                    "0.2.13",
+                    "0.2.14",
+                    "0.2.15",
+                    "0.2.3",
+                    "0.2.4",
+                    "0.2.5",
+                    "0.2.6",
+                    "0.2.7",
+                    "0.2.8",
+                    "0.2.9",
+                    "0.3.0",
+                    "0.3.0rc2",
+                    "0.3.1",
+                    "0.3.2",
+                    "0.3.2rc1",
+                    "0.3.2rc2",
+                    "0.3.2rc3",
+                    "0.3.3",
+                    "0.3.3rc1",
+                    "0.3.4",
+                    "0.3.5",
+                    "0.3.5rc1",
+                    "0.3.5rc2",
+                    "0.3.6",
+                    "0.3.7",
+                    "0.3.8",
+                    "0.3.9",
+                    "0.4.0",
+                    "0.4.1",
+                    "0.4.2",
+                    "0.4.3"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/04/GHSA-95ww-475f-pr4f/GHSA-95ww-475f-pr4f.json"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-6587"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://adithyanak.com/ragas-v0214-arbitrary-file-read-vulnerability"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/vibrantlabsai/ragas"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://vuldb.com/submit/791088"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://vuldb.com/vuln/358222"
+                },
+                {
+                  "type": "WEB",
+                  "url": "https://vuldb.com/vuln/358222/cti"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-918"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-04-22T22:02:02Z",
+                "nvd_published_at": "2026-04-20T00:16:34Z",
+                "severity": "LOW"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-95ww-475f-pr4f"
+              ],
+              "aliases": [
+                "CVE-2026-6587",
+                "GHSA-95ww-475f-pr4f"
+              ],
+              "max_severity": "6.3"
+            }
+          ],
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "redis",
+            "version": "7.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "referencing",
+            "version": "0.36.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "regex",
+            "version": "2025.7.34",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 AND CNRI-Python"
+          ]
+        },
+        {
+          "package": {
+            "name": "requests",
+            "version": "2.33.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "requests-oauthlib",
+            "version": "2.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "ISC"
+          ]
+        },
+        {
+          "package": {
+            "name": "requests-toolbelt",
+            "version": "1.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "rich",
+            "version": "14.3.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "rich-argparse",
+            "version": "1.7.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "rich-rst",
+            "version": "1.3.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "rich-toolkit",
+            "version": "0.19.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "rignore",
+            "version": "0.7.6",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "rouge-score",
+            "version": "0.1.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "rpds-py",
+            "version": "0.30.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "ruff",
+            "version": "0.15.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "s3transfer",
+            "version": "0.14.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "sacrebleu",
+            "version": "2.6.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "scikit-network",
+            "version": "0.33.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "scipy",
+            "version": "1.17.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "secretstorage",
+            "version": "3.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "sentry-sdk",
+            "version": "2.57.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "setuptools",
+            "version": "82.0.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "shellingham",
+            "version": "1.5.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "shortuuid",
+            "version": "1.0.13",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "simpleeval",
+            "version": "1.0.7",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "six",
+            "version": "1.17.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "smart-open",
+            "version": "7.0.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "smmap",
+            "version": "5.0.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "sniffio",
+            "version": "1.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 OR MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "soupsieve",
+            "version": "2.8.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "sqlalchemy",
+            "version": "2.0.48",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "sqlfluff",
+            "version": "3.4.0",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-19T20:15:17Z",
+              "published": "2026-05-19T20:10:53Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-73jc-5mrq-prw7",
+              "aliases": [
+                "CVE-2026-46374"
+              ],
+              "summary": "SQLFluff: Uncontrolled Resource Consumption in SQLFluff Parser",
+              "details": "### Impact\n\nIn deployments where untrusted users can provide SQL queries to be linted, an untrusted user can submit a malicious long query to any application using the parser to trigger a Denial of Service through resource exhaustion.\n\n### Patches\n\nVersions 4.2.0 and up contain a configurable parse node limit, which is enabled by default, to prevent this manner of exploit.\n\n### Credit\n\nOri Nakar from Imperva Threat Research Team.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "sqlfluff",
+                    "purl": "pkg:pypi/sqlfluff"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "4.2.0"
+                        }
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.0.1",
+                    "0.0.2",
+                    "0.0.3",
+                    "0.0.4",
+                    "0.0.5",
+                    "0.0.6",
+                    "0.0.7",
+                    "0.0.9",
+                    "0.1.0",
+                    "0.1.1",
+                    "0.1.2",
+                    "0.1.3",
+                    "0.1.4",
+                    "0.1.5",
+                    "0.10.0",
+                    "0.10.1",
+                    "0.11.0",
+                    "0.11.1",
+                    "0.11.2",
+                    "0.12.0",
+                    "0.13.0",
+                    "0.13.1",
+                    "0.13.2",
+                    "0.2.0",
+                    "0.2.1",
+                    "0.2.2",
+                    "0.2.3",
+                    "0.2.4",
+                    "0.3.0",
+                    "0.3.1",
+                    "0.3.2",
+                    "0.3.2.post1",
+                    "0.3.2.post2",
+                    "0.3.3",
+                    "0.3.4",
+                    "0.3.5",
+                    "0.3.6",
+                    "0.4.0",
+                    "0.4.0a1",
+                    "0.4.0a2",
+                    "0.4.0a3",
+                    "0.4.1",
+                    "0.5.0",
+                    "0.5.1",
+                    "0.5.2",
+                    "0.5.3",
+                    "0.5.4",
+                    "0.5.5",
+                    "0.5.6",
+                    "0.6.0",
+                    "0.6.0a1",
+                    "0.6.0a2",
+                    "0.6.1",
+                    "0.6.2",
+                    "0.6.3",
+                    "0.6.4",
+                    "0.6.5",
+                    "0.6.6",
+                    "0.6.7",
+                    "0.6.8",
+                    "0.6.9",
+                    "0.7.0",
+                    "0.7.0a1",
+                    "0.7.0a2",
+                    "0.7.0a3",
+                    "0.7.0a5",
+                    "0.7.0a8",
+                    "0.7.1",
+                    "0.8.0",
+                    "0.8.1",
+                    "0.8.2",
+                    "0.9.0",
+                    "0.9.1",
+                    "0.9.2",
+                    "0.9.3",
+                    "0.9.4",
+                    "1.0.0",
+                    "1.1.0",
+                    "1.2.0",
+                    "1.2.1",
+                    "1.3.0",
+                    "1.3.1",
+                    "1.3.2",
+                    "1.4.0",
+                    "1.4.1",
+                    "1.4.2",
+                    "1.4.3",
+                    "1.4.4",
+                    "1.4.5",
+                    "2.0.0",
+                    "2.0.0a1",
+                    "2.0.0a2",
+                    "2.0.0a3",
+                    "2.0.0a4",
+                    "2.0.0a5",
+                    "2.0.0a6",
+                    "2.0.1",
+                    "2.0.2",
+                    "2.0.3",
+                    "2.0.4",
+                    "2.0.5",
+                    "2.0.6",
+                    "2.0.7",
+                    "2.1.0",
+                    "2.1.1",
+                    "2.1.2",
+                    "2.1.3",
+                    "2.1.4",
+                    "2.2.0",
+                    "2.2.1",
+                    "2.3.0",
+                    "2.3.1",
+                    "2.3.2",
+                    "2.3.3",
+                    "2.3.4",
+                    "2.3.5",
+                    "3.0.0",
+                    "3.0.0a1",
+                    "3.0.0a2",
+                    "3.0.0a3",
+                    "3.0.0a4",
+                    "3.0.0a5",
+                    "3.0.0a6",
+                    "3.0.1",
+                    "3.0.2",
+                    "3.0.3",
+                    "3.0.4",
+                    "3.0.5",
+                    "3.0.6",
+                    "3.0.7",
+                    "3.1.0",
+                    "3.1.1",
+                    "3.2.0",
+                    "3.2.1",
+                    "3.2.2",
+                    "3.2.3",
+                    "3.2.4",
+                    "3.2.5",
+                    "3.3.0",
+                    "3.3.1",
+                    "3.4.0",
+                    "3.4.1",
+                    "3.4.2",
+                    "3.5.0",
+                    "4.0.0",
+                    "4.0.0a1",
+                    "4.0.0a2",
+                    "4.0.0a3",
+                    "4.0.1.post1",
+                    "4.0.3",
+                    "4.0.4",
+                    "4.0.4a1",
+                    "4.1.0"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/05/GHSA-73jc-5mrq-prw7/GHSA-73jc-5mrq-prw7.json"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/sqlfluff/sqlfluff/security/advisories/GHSA-73jc-5mrq-prw7"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/sqlfluff/sqlfluff"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-400"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-05-19T20:10:53Z",
+                "nvd_published_at": null,
+                "severity": "HIGH"
+              }
+            },
+            {
+              "modified": "2026-05-19T20:15:16Z",
+              "published": "2026-05-19T20:10:17Z",
+              "schema_version": "1.7.5",
+              "id": "GHSA-wmhf-fqc8-vxhh",
+              "aliases": [
+                "CVE-2026-46373"
+              ],
+              "summary": "SQLFluff: Recursive Stack Overflow in Parser",
+              "details": "### Impact\n\nIn deployments where untrusted users can provide SQL queries to be linted, an untrusted user can submit a malicious query with deliberate excessive nesting to any application using the parser to trigger a Denial of Service through resource exhaustion.\n\n### Patches\n\nVersions 4.1.0 and up contain a configurable recursion limit, which is enabled by default, to prevent this manner of exploit.\n\n### Credit\n\nOri Nakar from Imperva Threat Research Team.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "sqlfluff",
+                    "purl": "pkg:pypi/sqlfluff"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {
+                          "fixed": "4.1.0"
+                        }
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.0.1",
+                    "0.0.2",
+                    "0.0.3",
+                    "0.0.4",
+                    "0.0.5",
+                    "0.0.6",
+                    "0.0.7",
+                    "0.0.9",
+                    "0.1.0",
+                    "0.1.1",
+                    "0.1.2",
+                    "0.1.3",
+                    "0.1.4",
+                    "0.1.5",
+                    "0.10.0",
+                    "0.10.1",
+                    "0.11.0",
+                    "0.11.1",
+                    "0.11.2",
+                    "0.12.0",
+                    "0.13.0",
+                    "0.13.1",
+                    "0.13.2",
+                    "0.2.0",
+                    "0.2.1",
+                    "0.2.2",
+                    "0.2.3",
+                    "0.2.4",
+                    "0.3.0",
+                    "0.3.1",
+                    "0.3.2",
+                    "0.3.2.post1",
+                    "0.3.2.post2",
+                    "0.3.3",
+                    "0.3.4",
+                    "0.3.5",
+                    "0.3.6",
+                    "0.4.0",
+                    "0.4.0a1",
+                    "0.4.0a2",
+                    "0.4.0a3",
+                    "0.4.1",
+                    "0.5.0",
+                    "0.5.1",
+                    "0.5.2",
+                    "0.5.3",
+                    "0.5.4",
+                    "0.5.5",
+                    "0.5.6",
+                    "0.6.0",
+                    "0.6.0a1",
+                    "0.6.0a2",
+                    "0.6.1",
+                    "0.6.2",
+                    "0.6.3",
+                    "0.6.4",
+                    "0.6.5",
+                    "0.6.6",
+                    "0.6.7",
+                    "0.6.8",
+                    "0.6.9",
+                    "0.7.0",
+                    "0.7.0a1",
+                    "0.7.0a2",
+                    "0.7.0a3",
+                    "0.7.0a5",
+                    "0.7.0a8",
+                    "0.7.1",
+                    "0.8.0",
+                    "0.8.1",
+                    "0.8.2",
+                    "0.9.0",
+                    "0.9.1",
+                    "0.9.2",
+                    "0.9.3",
+                    "0.9.4",
+                    "1.0.0",
+                    "1.1.0",
+                    "1.2.0",
+                    "1.2.1",
+                    "1.3.0",
+                    "1.3.1",
+                    "1.3.2",
+                    "1.4.0",
+                    "1.4.1",
+                    "1.4.2",
+                    "1.4.3",
+                    "1.4.4",
+                    "1.4.5",
+                    "2.0.0",
+                    "2.0.0a1",
+                    "2.0.0a2",
+                    "2.0.0a3",
+                    "2.0.0a4",
+                    "2.0.0a5",
+                    "2.0.0a6",
+                    "2.0.1",
+                    "2.0.2",
+                    "2.0.3",
+                    "2.0.4",
+                    "2.0.5",
+                    "2.0.6",
+                    "2.0.7",
+                    "2.1.0",
+                    "2.1.1",
+                    "2.1.2",
+                    "2.1.3",
+                    "2.1.4",
+                    "2.2.0",
+                    "2.2.1",
+                    "2.3.0",
+                    "2.3.1",
+                    "2.3.2",
+                    "2.3.3",
+                    "2.3.4",
+                    "2.3.5",
+                    "3.0.0",
+                    "3.0.0a1",
+                    "3.0.0a2",
+                    "3.0.0a3",
+                    "3.0.0a4",
+                    "3.0.0a5",
+                    "3.0.0a6",
+                    "3.0.1",
+                    "3.0.2",
+                    "3.0.3",
+                    "3.0.4",
+                    "3.0.5",
+                    "3.0.6",
+                    "3.0.7",
+                    "3.1.0",
+                    "3.1.1",
+                    "3.2.0",
+                    "3.2.1",
+                    "3.2.2",
+                    "3.2.3",
+                    "3.2.4",
+                    "3.2.5",
+                    "3.3.0",
+                    "3.3.1",
+                    "3.4.0",
+                    "3.4.1",
+                    "3.4.2",
+                    "3.5.0",
+                    "4.0.0",
+                    "4.0.0a1",
+                    "4.0.0a2",
+                    "4.0.0a3",
+                    "4.0.1.post1",
+                    "4.0.3",
+                    "4.0.4",
+                    "4.0.4a1"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2026/05/GHSA-wmhf-fqc8-vxhh/GHSA-wmhf-fqc8-vxhh.json"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "WEB",
+                  "url": "https://github.com/sqlfluff/sqlfluff/security/advisories/GHSA-wmhf-fqc8-vxhh"
+                },
+                {
+                  "type": "PACKAGE",
+                  "url": "https://github.com/sqlfluff/sqlfluff"
+                }
+              ],
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-674"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-05-19T20:10:17Z",
+                "nvd_published_at": null,
+                "severity": "HIGH"
+              }
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "GHSA-73jc-5mrq-prw7"
+              ],
+              "aliases": [
+                "CVE-2026-46374",
+                "GHSA-73jc-5mrq-prw7"
+              ],
+              "max_severity": "7.5"
+            },
+            {
+              "ids": [
+                "GHSA-wmhf-fqc8-vxhh"
+              ],
+              "aliases": [
+                "CVE-2026-46373",
+                "GHSA-wmhf-fqc8-vxhh"
+              ],
+              "max_severity": "7.5"
+            }
+          ],
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "sqlmodel",
+            "version": "0.0.37",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "sse-starlette",
+            "version": "3.3.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "starlette",
+            "version": "0.52.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "streaming-form-data",
+            "version": "2.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "structlog",
+            "version": "25.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0 OR MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "sympy",
+            "version": "1.14.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "tabulate",
+            "version": "0.10.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "tblib",
+            "version": "3.2.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-2-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "tenacity",
+            "version": "9.1.4",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "tiktoken",
+            "version": "0.12.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "tokenizers",
+            "version": "0.22.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "tomlkit",
+            "version": "0.14.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "tornado",
+            "version": "6.5.5",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "tqdm",
+            "version": "4.67.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT AND MPL-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "typer",
+            "version": "0.24.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-aioboto3",
+            "version": "15.5.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-aiobotocore",
+            "version": "3.3.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-aiobotocore-s3",
+            "version": "2.25.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-awscrt",
+            "version": "0.31.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-requests",
+            "version": "2.33.0.20260327",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "types-s3transfer",
+            "version": "0.16.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "typing-extensions",
+            "version": "4.15.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "PSF-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "typing-inspect",
+            "version": "0.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "typing-inspection",
+            "version": "0.4.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "tzdata",
+            "version": "2025.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "tzlocal",
+            "version": "5.3.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "uncalled-for",
+            "version": "0.2.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "urllib3",
+            "version": "2.7.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "uuid-utils",
+            "version": "0.14.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "uvicorn",
+            "version": "0.42.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "uvloop",
+            "version": "0.22.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "validators",
+            "version": "0.35.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "vine",
+            "version": "5.1.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "wasmtime",
+            "version": "43.0.0",
+            "ecosystem": "PyPI"
+          },
+          "vulnerabilities": [
+            {
+              "modified": "2026-05-20T09:19:23Z",
+              "published": "2024-10-09T18:15:09Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2024-311",
+              "aliases": [
+                "CVE-2024-47813",
+                "GHSA-7qmx-3fpx-r45m",
+                "RUSTSEC-2024-0439"
+              ],
+              "details": "Wasmtime is an open source runtime for WebAssembly. Under certain concurrent event orderings, a `wasmtime::Engine`'s internal type registry was susceptible to double-unregistration bugs due to a race condition, leading to panics and potentially type registry corruption. That registry corruption could, following an additional and particular sequence of concurrent events, lead to violations of WebAssembly's control-flow integrity (CFI) and type safety. Users that do not use `wasmtime::Engine` across multiple threads are not affected. Users that only create new modules across threads over time are additionally not affected. Reproducing this bug requires creating and dropping multiple type instances (such as `wasmtime::FuncType` or `wasmtime::ArrayType`) concurrently on multiple threads, where all types are associated with the same `wasmtime::Engine`. **Wasm guests cannot trigger this bug.** See the \"References\" section below for a list of Wasmtime types-related APIs that are affected. Wasmtime maintains an internal registry of types within a `wasmtime::Engine` and an engine is shareable across threads. Types can be created and referenced through creation of a `wasmtime::Module`, creation of `wasmtime::FuncType`, or a number of other APIs where the host creates a function (see \"References\" below). Each of these cases interacts with an engine to deduplicate type information and manage type indices that are used to implement type checks in WebAssembly's `call_indirect` function, for example. This bug is a race condition in this management where the internal type registry could be corrupted to trigger an assert or contain invalid state. Wasmtime's internal representation of a type has individual types (e.g. one-per-host-function) maintain a registration count of how many time it's been used. Types additionally have state within an engine behind a read-write lock such as lookup/deduplication information. The race here is a time-of-check versus time-of-use (TOCTOU) bug where one thread atomically decrements a type entry's registration count, observes zero registrations, and then acquires a lock in order to unregister that entry. However, between when this first thread observed the zero-registration count and when it acquires that lock, another thread could perform the following sequence of events: re-register another copy of the type, which deduplicates to that same entry, resurrecting it and incrementing its registration count; then drop the type and decrement its registration count; observe that the registration count is now zero; acquire the type registry lock; and finally unregister the type. Now, when the original thread finally acquires the lock and unregisters the entry, it is the second time this entry has been unregistered. This bug was originally introduced in Wasmtime 19's development of the WebAssembly GC proposal. This bug affects users who are not using the GC proposal, however, and affects Wasmtime in its default configuration even when the GC proposal is disabled. Wasmtime users using 19.0.0 and after are all affected by this issue. We have released the following Wasmtime versions, all of which have a fix for this bug: * 21.0.2 * 22.0.1 * 23.0.3 * 24.0.1 * 25.0.2. If your application creates and drops Wasmtime types on multiple threads concurrently, there are no known workarounds. Users are encouraged to upgrade to a patched release.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:N/I:L/A:L"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "wasmtime",
+                    "purl": "pkg:pypi/wasmtime"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {},
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.0.1",
+                    "0.0.2",
+                    "0.11.0",
+                    "0.12.0",
+                    "0.15.0",
+                    "0.15.1",
+                    "0.16.0",
+                    "0.16.1",
+                    "0.17.0",
+                    "0.18.0",
+                    "0.18.1",
+                    "0.18.2",
+                    "0.19.0",
+                    "0.20.0",
+                    "0.21.0",
+                    "0.22.0",
+                    "0.23.0",
+                    "0.24.0",
+                    "0.25.0",
+                    "0.26.0",
+                    "0.27.0",
+                    "0.28.0",
+                    "0.28.1",
+                    "0.29.0",
+                    "0.30.0",
+                    "0.31.0",
+                    "0.32.0",
+                    "0.33.0",
+                    "0.34.0",
+                    "0.35.0",
+                    "0.36.0",
+                    "0.37.0",
+                    "0.38.0",
+                    "0.39.1",
+                    "0.40.0",
+                    "0.9.0",
+                    "1.0.0",
+                    "1.0.1",
+                    "10.0.0",
+                    "10.0.1",
+                    "11.0.0",
+                    "12.0.0",
+                    "13.0.0",
+                    "13.0.1",
+                    "13.0.2",
+                    "14.0.0",
+                    "15.0.0",
+                    "16.0.0",
+                    "17.0.0",
+                    "17.0.1",
+                    "18.0.0",
+                    "18.0.2",
+                    "19.0.0",
+                    "2.0.0",
+                    "20.0.0",
+                    "21.0.0",
+                    "22.0.0",
+                    "23.0.0",
+                    "24.0.0",
+                    "25.0.0",
+                    "27.0.0",
+                    "27.0.1",
+                    "27.0.2",
+                    "28.0.0",
+                    "29.0.0",
+                    "3.0.0",
+                    "30.0.0",
+                    "31.0.0",
+                    "32.0.0",
+                    "33.0.0",
+                    "34.0.0",
+                    "35.0.0",
+                    "36.0.0",
+                    "37.0.0",
+                    "38.0.0",
+                    "39.0.0",
+                    "4.0.0",
+                    "40.0.0",
+                    "41.0.0",
+                    "42.0.0",
+                    "43.0.0",
+                    "44.0.0",
+                    "5.0.0",
+                    "6.0.0",
+                    "7.0.0",
+                    "8.0.0",
+                    "8.0.1",
+                    "9.0.0"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/wasmtime/PYSEC-2024-311.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-7qmx-3fpx-r45m"
+                },
+                {
+                  "type": "FIX",
+                  "url": "https://github.com/bytecodealliance/wasmtime/pull/7969"
+                }
+              ]
+            },
+            {
+              "modified": "2026-05-20T09:19:23Z",
+              "published": "2026-04-09T19:16:24Z",
+              "schema_version": "1.7.5",
+              "id": "PYSEC-2026-151",
+              "aliases": [
+                "CVE-2026-34983",
+                "GHSA-hfr4-7c6c-48w2",
+                "RUSTSEC-2026-0090"
+              ],
+              "details": "Wasmtime is a runtime for WebAssembly. In 43.0.0, cloning a wasmtime::Linker is unsound and can result in use-after-free bugs. This bug is not controllable by guest Wasm programs. It can only be triggered by a specific sequence of embedder API calls made by the host. Specifically, the following steps must occur to trigger the bug clone a wasmtime::Linker, drop the original linker instance, use the new, cloned linker instance, resulting in a use-after-free. This vulnerability is fixed in 43.0.1.",
+              "severity": [
+                {
+                  "type": "CVSS_V3",
+                  "score": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:U/C:N/I:N/A:H"
+                }
+              ],
+              "affected": [
+                {
+                  "package": {
+                    "ecosystem": "PyPI",
+                    "name": "wasmtime",
+                    "purl": "pkg:pypi/wasmtime"
+                  },
+                  "ranges": [
+                    {
+                      "type": "ECOSYSTEM",
+                      "events": [
+                        {
+                          "introduced": "0"
+                        },
+                        {}
+                      ]
+                    }
+                  ],
+                  "versions": [
+                    "0.0.1",
+                    "0.0.2",
+                    "0.11.0",
+                    "0.12.0",
+                    "0.15.0",
+                    "0.15.1",
+                    "0.16.0",
+                    "0.16.1",
+                    "0.17.0",
+                    "0.18.0",
+                    "0.18.1",
+                    "0.18.2",
+                    "0.19.0",
+                    "0.20.0",
+                    "0.21.0",
+                    "0.22.0",
+                    "0.23.0",
+                    "0.24.0",
+                    "0.25.0",
+                    "0.26.0",
+                    "0.27.0",
+                    "0.28.0",
+                    "0.28.1",
+                    "0.29.0",
+                    "0.30.0",
+                    "0.31.0",
+                    "0.32.0",
+                    "0.33.0",
+                    "0.34.0",
+                    "0.35.0",
+                    "0.36.0",
+                    "0.37.0",
+                    "0.38.0",
+                    "0.39.1",
+                    "0.40.0",
+                    "0.9.0",
+                    "1.0.0",
+                    "1.0.1",
+                    "10.0.0",
+                    "10.0.1",
+                    "11.0.0",
+                    "12.0.0",
+                    "13.0.0",
+                    "13.0.1",
+                    "13.0.2",
+                    "14.0.0",
+                    "15.0.0",
+                    "16.0.0",
+                    "17.0.0",
+                    "17.0.1",
+                    "18.0.0",
+                    "18.0.2",
+                    "19.0.0",
+                    "2.0.0",
+                    "20.0.0",
+                    "21.0.0",
+                    "22.0.0",
+                    "23.0.0",
+                    "24.0.0",
+                    "25.0.0",
+                    "27.0.0",
+                    "27.0.1",
+                    "27.0.2",
+                    "28.0.0",
+                    "29.0.0",
+                    "3.0.0",
+                    "30.0.0",
+                    "31.0.0",
+                    "32.0.0",
+                    "33.0.0",
+                    "34.0.0",
+                    "35.0.0",
+                    "36.0.0",
+                    "37.0.0",
+                    "38.0.0",
+                    "39.0.0",
+                    "4.0.0",
+                    "40.0.0",
+                    "41.0.0",
+                    "42.0.0",
+                    "43.0.0",
+                    "44.0.0",
+                    "5.0.0",
+                    "6.0.0",
+                    "7.0.0",
+                    "8.0.0",
+                    "8.0.1",
+                    "9.0.0"
+                  ],
+                  "database_specific": {
+                    "source": "https://github.com/pypa/advisory-database/blob/main/vulns/wasmtime/PYSEC-2026-151.yaml"
+                  }
+                }
+              ],
+              "references": [
+                {
+                  "type": "ADVISORY",
+                  "url": "https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-hfr4-7c6c-48w2"
+                }
+              ]
+            }
+          ],
+          "groups": [
+            {
+              "ids": [
+                "PYSEC-2024-311"
+              ],
+              "aliases": [
+                "CVE-2024-47813",
+                "GHSA-7qmx-3fpx-r45m",
+                "PYSEC-2024-311",
+                "RUSTSEC-2024-0439"
+              ],
+              "max_severity": "2.9"
+            },
+            {
+              "ids": [
+                "PYSEC-2026-151"
+              ],
+              "aliases": [
+                "CVE-2026-34983",
+                "GHSA-hfr4-7c6c-48w2",
+                "PYSEC-2026-151",
+                "RUSTSEC-2026-0090"
+              ],
+              "max_severity": "5.0"
+            }
+          ],
+          "licenses": [
+            "Apache-2.0 WITH LLVM-exception"
+          ]
+        },
+        {
+          "package": {
+            "name": "watchdog",
+            "version": "6.0.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "watchfiles",
+            "version": "1.1.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "wcwidth",
+            "version": "0.6.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "websocket-client",
+            "version": "1.9.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "websockets",
+            "version": "16.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        },
+        {
+          "package": {
+            "name": "wikipedia",
+            "version": "1.4.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "wrapt",
+            "version": "1.17.3",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "xdg-base-dirs",
+            "version": "6.0.2",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "ISC"
+          ]
+        },
+        {
+          "package": {
+            "name": "xxhash",
+            "version": "3.6.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "non-standard"
+          ]
+        },
+        {
+          "package": {
+            "name": "yara-python",
+            "version": "4.5.1",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "yarl",
+            "version": "1.23.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "Apache-2.0"
+          ]
+        },
+        {
+          "package": {
+            "name": "zipp",
+            "version": "3.23.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "MIT"
+          ]
+        },
+        {
+          "package": {
+            "name": "zstandard",
+            "version": "0.25.0",
+            "ecosystem": "PyPI"
+          },
+          "licenses": [
+            "BSD-3-Clause"
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": true,
+      "allowlist": []
+    }
+  },
+  "license_summary": [
+    {
+      "name": "MIT",
+      "count": 136
+    },
+    {
+      "name": "Apache-2.0",
+      "count": 84
+    },
+    {
+      "name": "non-standard",
+      "count": 47
+    },
+    {
+      "name": "BSD-3-Clause",
+      "count": 33
+    },
+    {
+      "name": "ISC",
+      "count": 5
+    },
+    {
+      "name": "Apache-2.0 OR MIT",
+      "count": 3
+    },
+    {
+      "name": "BSD-2-Clause",
+      "count": 2
+    },
+    {
+      "name": "MPL-2.0",
+      "count": 2
+    },
+    {
+      "name": "PSF-2.0",
+      "count": 2
+    },
+    {
+      "name": "UPL-1.0",
+      "count": 2
+    },
+    {
+      "name": "0BSD AND BSD-3-Clause AND CC0-1.0 AND MIT AND Zlib",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 AND BSD-2-Clause",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 AND CNRI-Python",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 AND MIT",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 OR BSD-2-Clause",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 OR BSD-3-Clause",
+      "count": 1
+    },
+    {
+      "name": "Apache-2.0 WITH LLVM-exception",
+      "count": 1
+    },
+    {
+      "name": "MIT AND MPL-2.0",
+      "count": 1
+    },
+    {
+      "name": "MIT AND PSF-2.0",
+      "count": 1
+    },
+    {
+      "name": "MIT-CMU",
+      "count": 1
+    },
+    {
+      "name": "MPL-2.0 AND (Apache-2.0 OR MIT)",
+      "count": 1
+    },
+    {
+      "name": "Unlicense",
+      "count": 1
+    },
+    {
+      "name": "UNKNOWN",
+      "count": 5
+    }
+  ]
+}

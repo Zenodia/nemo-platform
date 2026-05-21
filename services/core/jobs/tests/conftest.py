@@ -1,0 +1,612 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+import datetime
+import tempfile
+from pathlib import Path
+from typing import AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+import pytest_asyncio
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from nemo_platform import AsyncNeMoPlatform
+from nmp.common.config import Configuration, ImagePullSecret, PlatformConfig
+from nmp.common.entities.client import EntityClient
+from nmp.common.jobs.api_factory import ContainerSpec as FactoryContainerSpec
+from nmp.common.jobs.api_factory import CPUExecutionProviderSpec as FactoryCPUExecutionProviderSpec
+from nmp.common.jobs.api_factory import PlatformJobEnvironmentVariableParam, job_route_factory
+from nmp.common.jobs.api_factory import PlatformJobSpec as FactoryPlatformJobSpec
+from nmp.common.jobs.api_factory import PlatformJobStep as FactoryPlatformJobStep
+from nmp.common.jobs.constants import (
+    EPHEMERAL_TASK_STORAGE_PATH_ENVVAR,
+    PERSISTENT_JOB_STORAGE_PATH_ENVVAR,
+)
+from nmp.common.jobs.file_manager import FileStorageType, TmpDirPath
+from nmp.common.jobs.schemas import PlatformJobStatus
+from nmp.common.service.dependencies import get_entity_client
+from nmp.core.jobs.api.dependencies import dep_dispatcher
+from nmp.core.jobs.api.v2.jobs.endpoints import router
+from nmp.core.jobs.api.v2.jobs.rerun import router as rerun_router
+from nmp.core.jobs.api.v2.jobs.schemas import (
+    CreatePlatformJobRequest,
+    PlatformJobResponse,
+    PlatformJobStepWithContext,
+)
+from nmp.core.jobs.app.dispatcher import JobDispatcher
+from nmp.core.jobs.app.providers import ComputeResources, ComputeResourceSpec, ContainerSpec, CPUExecutionProvider
+from nmp.core.jobs.app.schemas import (
+    PlatformJobEnvironmentVariable,
+    PlatformJobSpec,
+    PlatformJobStepSpec,
+)
+from nmp.core.jobs.config import JobsServiceConfig
+from nmp.core.jobs.controllers.backends.registry import BackendKey, BackendRegistry
+from nmp.core.jobs.controllers.backends.test import (
+    MockDockerCPUJobBackend,
+    MockDockerGPUJobBackend,
+    MockKubernetesCPUJobBackend,
+    MockKubernetesGPUJobBackend,
+)
+from nmp.core.jobs.entities import (
+    PlatformJob,
+    PlatformJobAttempt,
+    PlatformJobResult,
+)
+from nmp.testing import create_test_client
+from nmp.testing.blockbuster import blockbuster_fixture
+from pydantic import BaseModel
+from pytest import fixture
+
+# Enable BlockBuster to detect blocking calls in async code
+blockbuster = blockbuster_fixture(autouse=True)
+
+# ============================================================================
+# Pytest Hooks
+# ============================================================================
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Modify test items during collection.
+
+    Auto-marks tests based on their location:
+    - Tests in e2e/ directories get the 'e2e' marker
+    - Tests in integration/ directories get the 'integration' marker
+    - Tests without category markers get the 'unit' marker
+    """
+    # Category markers that determine test type
+    category_markers = {"unit", "e2e", "integration", "regression", "canary", "slow", "skip_in_ci"}
+
+    for item in items:
+        # Get current marker names
+        marker_names = {marker.name for marker in item.iter_markers()}
+
+        # Auto-mark tests in e2e directories
+        if "/e2e/" in str(item.fspath):
+            if "e2e" not in marker_names:
+                item.add_marker(pytest.mark.e2e)
+                marker_names.add("e2e")
+
+        # Auto-mark tests in integration directories
+        elif "/integration/" in str(item.fspath):
+            if "integration" not in marker_names:
+                item.add_marker(pytest.mark.integration)
+                marker_names.add("integration")
+
+        # Auto-mark tests without category markers as unit tests
+        if not marker_names.intersection(category_markers):
+            item.add_marker(pytest.mark.unit)
+
+
+# ============================================================================
+# Test Constants
+# ============================================================================
+
+
+# Test constants using dictionary structures for better reusability
+class TestConstants:
+    # Basic values
+    SOURCE = "test-source"
+    PROJECT = "test-project"
+    WORKSPACE = "test-workspace"
+
+    # Descriptions
+    DESC_TEST = "A test job for round-trip testing"
+    DESC_MODIFIED = "A modified job using helper function"
+    DESC_HELPER_MODIFIED = "This job has been modified"
+
+    # Standard spec dictionaries
+    SPEC_BASIC = {"task": "fine-tuning", "model": "llama-3.1-8b"}
+    SPEC_INFERENCE = {"task": "inference"}
+    SPEC_TEST = {"task": "test"}
+    SPEC_COMPLEX = {
+        "complex": {"learning_rate": 0.001, "batch_size": 32, "epochs": 10},
+    }
+
+    TEST_EXECUTOR = CPUExecutionProvider(
+        provider="cpu",
+        profile="default",
+        container=ContainerSpec(image="test-image"),
+        resources=ComputeResources(
+            limits=ComputeResourceSpec(
+                cpu="5",
+                memory="2Gi",
+            )
+        ),
+    )
+
+    # Standard platform_spec dictionaries
+    PLATFORM_SPEC = PlatformJobSpec(steps=[PlatformJobStepSpec(name="basic", executor=TEST_EXECUTOR, config={})])
+
+    # Standard ownership dictionaries
+    OWNERSHIP_BASIC = {"user": "test-user", "team": "test-team"}
+
+    # Standard custom_fields dictionaries
+    CUSTOM_FIELDS_BASIC = {"priority": "high", "tags": ["ml", "training"]}
+    CUSTOM_FIELDS_COMPLEX = {
+        "metadata": {"experiment_id": "exp-456"},
+    }
+
+    # Standard status_details dictionaries
+    STATUS_DETAILS_QUEUED = {"message": "Job queued for processing"}
+    STATUS_DETAILS_EMPTY = {}
+
+    # Standard warnings lists
+    WARNINGS_MEMORY = [{"type": "memory", "message": "High memory usage detected"}]
+
+    # Update dictionaries for variations
+    SPEC_UPDATE = {"hyperparameters": {"learning_rate": 0.002}}
+
+    CUSTOM_FIELDS_UPDATE_HIGH = {"priority": "high"}
+    CUSTOM_FIELDS_UPDATE_MEDIUM = {"priority": "medium"}
+    CUSTOM_FIELDS_UPDATE_LOW = {"priority": "low"}
+
+
+@pytest.fixture(scope="function")
+def mock_store():
+    """Create an EntityClient for testing backed by in-memory storage.
+
+    Uses create_test_client with EntitiesService in-memory backend
+    to avoid issues with nested ASGITransport contexts.
+    """
+    # Include projects used in tests (proj-1234 used by test_hello_world_jobs_list)
+    projects = ["default/test-project", "default/proj-1234"]
+    with create_test_client(client_type=EntityClient, projects=projects) as client:
+        yield client
+
+
+@pytest_asyncio.fixture()
+async def mock_dispatcher(mock_store, mock_nmp_client) -> JobDispatcher:
+    """Create a JobDispatcher instance for testing with mock EntityStore."""
+    return JobDispatcher(
+        store=mock_store,
+        sdk=mock_nmp_client,
+    )
+
+
+@pytest.fixture
+def sample_platform_job_request() -> CreatePlatformJobRequest:
+    return CreatePlatformJobRequest(
+        name="test-job",
+        description=TestConstants.DESC_TEST,
+        project=TestConstants.PROJECT,
+        source=TestConstants.SOURCE,
+        spec=TestConstants.SPEC_BASIC,
+        platform_spec=TestConstants.PLATFORM_SPEC,
+        ownership=TestConstants.OWNERSHIP_BASIC,
+        custom_fields=TestConstants.CUSTOM_FIELDS_BASIC,
+    )
+
+
+@pytest.fixture
+def sample_platform_job(sample_platform_job_request: CreatePlatformJobRequest) -> PlatformJobResponse:
+    """Create a sample PlatformJobResponse for testing."""
+    pjr = sample_platform_job_request
+    return PlatformJobResponse(
+        id="job-123",
+        attempt_id="attempt-1",
+        name="test-job",
+        workspace="default",
+        fileset="test-logs-fileset",
+        description=pjr.description,
+        project=pjr.project,
+        source=pjr.source,
+        spec=pjr.spec,
+        platform_spec=pjr.platform_spec,
+        status=PlatformJobStatus.CREATED,
+        ownership=pjr.ownership,
+        custom_fields=pjr.custom_fields,
+    )
+
+
+@pytest.fixture
+def complex_platform_job() -> PlatformJob:
+    """Create a complex PlatformJob with nested JSON structures for comprehensive testing."""
+    return PlatformJob(
+        name="complex-job",
+        workspace="default",
+        fileset="test-logs-fileset",
+        source=TestConstants.SOURCE,
+        spec=TestConstants.SPEC_COMPLEX,
+        platform_spec=TestConstants.PLATFORM_SPEC,
+        custom_fields=TestConstants.CUSTOM_FIELDS_COMPLEX,
+    )
+
+
+@pytest.fixture
+def sample_platform_job_result():
+    return PlatformJobResult(
+        name="test-job-result-name",
+        workspace="default",
+        job="test-job-id",
+        artifact_url="default/test-fileset#path",
+        artifact_storage_type=FileStorageType.FILESET,
+    )
+
+
+@pytest.fixture
+def sample_platform_job_attempt():
+    """Create a sample PlatformJobAttempt for testing."""
+    return PlatformJobAttempt(
+        name="test-attempt",
+        workspace="default",
+        job="test-job-id",
+        seq=0,
+        status=PlatformJobStatus.CREATED,
+        status_details=TestConstants.STATUS_DETAILS_QUEUED,
+        spec=TestConstants.SPEC_BASIC,
+        platform_spec=TestConstants.PLATFORM_SPEC,
+    )
+
+
+@pytest.fixture
+def sample_job_dict():
+    """Create a sample job dictionary matching test_registry.py structure."""
+    return {
+        "name": "docker-test-job",
+        "workspace": "default",
+        "source": "curl-test",
+        "fileset": "test-logs-fileset",
+        "spec": {"parameters": {"test_param": "test_value"}},
+        "platform_spec": {
+            "steps": [
+                {
+                    "name": "docker-step-cpu-1",
+                    "executor": {
+                        "provider": "cpu",
+                        "profile": "default",
+                        "container": {"image": "ubuntu:latest", "command": ["c1", "c2"], "entrypoint": ["a1", "a2"]},
+                    },
+                    "environment": [{"name": "TEST_ENV", "value": "test_value"}],
+                },
+                {
+                    "name": "docker-step-gpu",
+                    "executor": {
+                        "provider": "gpu",
+                        "profile": "default",
+                        "container": {"image": "ubuntu:latest", "command": ["c1", "c2"], "entrypoint": ["a1", "a2"]},
+                        "resources": {"num_gpus": 2},
+                    },
+                    "environment": [{"name": "TEST_ENV", "value": "test_value"}],
+                },
+                {
+                    "name": "docker-step-no-command-or-entrypoint",
+                    "executor": {
+                        "provider": "cpu",
+                        "profile": "default",
+                        "container": {"image": "ubuntu:latest"},
+                    },
+                    "environment": [{"name": "TEST_ENV", "value": "test_value"}],
+                },
+            ]
+        },
+    }
+
+
+@fixture
+def mock_nmp_client():
+    """Create a flexible mock of NeMoPlatform for testing."""
+    mock_client = MagicMock()
+
+    # Set up the nested structure that tests expect
+    mock_client.beta = MagicMock()
+    mock_client.jobs = MagicMock()
+    mock_client.jobs.list = MagicMock()
+    mock_client.jobs.update_status = MagicMock()
+    mock_client.jobs.steps = MagicMock()
+    mock_client.jobs.steps.list = MagicMock()
+    mock_client.jobs.steps.retrieve = MagicMock()
+    mock_client.jobs.steps.update_status = MagicMock()
+
+    # Mock filesets API for log storage
+    mock_client.files = MagicMock()
+    mock_client.files.filesets = MagicMock()
+    mock_client.files.filesets.create = AsyncMock()
+    mock_client.files.filesets.delete = AsyncMock()
+    # Return a mock fileset object with an id
+    mock_fileset = MagicMock()
+    mock_fileset.name = "test-fileset-id"
+    mock_client.files.filesets.create.return_value = mock_fileset
+
+    return mock_client
+
+
+@fixture
+def mock_result_manager(tmp_path: Path):
+    m = MagicMock()
+    m._tmp_dir = tmp_path / "mydir"
+    m._tmp_dir.mkdir()
+    m._path = m._tmp_dir / "myfile.txt"
+    m._path.write_text("hello world")
+
+    async def download_artifact(artifact_url: str, local_dir: str | Path | None = None) -> TmpDirPath:
+        return TmpDirPath(path=m._path, tmp_dir=m._tmp_dir)
+
+    m.download_artifact = download_artifact
+
+    return m
+
+
+@pytest.fixture
+def test_step_pending() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.PENDING)
+
+
+@pytest.fixture
+def test_step_active() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.ACTIVE)
+
+
+@pytest.fixture
+def test_step_completed() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.COMPLETED)
+
+
+@pytest.fixture
+def test_step_error() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.ERROR)
+
+
+@pytest.fixture
+def test_step_pausing() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.PAUSING)
+
+
+@pytest.fixture
+def test_step_paused() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.PAUSED)
+
+
+@pytest.fixture
+def test_step_resuming() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.RESUMING)
+
+
+@pytest.fixture
+def test_step_cancelling() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.CANCELLING)
+
+
+@pytest.fixture
+def test_step_cancelled() -> PlatformJobStepWithContext:
+    return create_step_with_status(PlatformJobStatus.CANCELLED)
+
+
+def create_step_with_status(status: PlatformJobStatus) -> PlatformJobStepWithContext:
+    return PlatformJobStepWithContext(
+        id="test-step-id",
+        job="test-job-id",
+        workspace="default",
+        attempt_id="test-job-attempt-id",
+        name="test-step",
+        fileset="test-logs-fileset",
+        step_spec=PlatformJobStepSpec(
+            name="test-step",
+            executor=CPUExecutionProvider(
+                provider="cpu", profile="default", container=ContainerSpec(image="test-image")
+            ),
+            config={},
+            environment=[
+                PlatformJobEnvironmentVariable(name="ENV_VAR", value="test_value"),
+                PlatformJobEnvironmentVariable(name=PERSISTENT_JOB_STORAGE_PATH_ENVVAR, value="/var/test"),
+                PlatformJobEnvironmentVariable(name=EPHEMERAL_TASK_STORAGE_PATH_ENVVAR, value="/var/tmp"),
+            ],
+        ),
+        status=status,
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+        updated_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+
+
+@pytest.fixture
+def mock_platform_config() -> PlatformConfig:
+    """Real PlatformConfig for controller tests (get_service_url, loopback_address, to_shared_envvars work correctly)."""
+    return PlatformConfig(  # type: ignore[abstract]
+        base_url="http://localhost:8080",
+        files_url="http://localhost:8080",
+        image_pull_secrets=[ImagePullSecret(name="global-pull-secret")],
+        loopback_address=None,
+    )
+
+
+@pytest.fixture
+def job_config_with_many_profiles() -> JobsServiceConfig:
+    # Define the YAML content as a variable
+    yaml_content = """# This is the default configuration for the Jobs microservice.
+platform:
+  base_url: "http://localhost:8080"
+  runtime: "kubernetes"
+
+executor_defaults:
+  kubernetes_job:
+    storage:
+      pvc_name: test_jobs_storage
+  docker:
+    storage:
+      volume_name: test_jobs_storage
+
+jobs:
+  # Executor profiles configuration
+  executors:
+    - provider: cpu
+      profile: default
+      backend: docker
+      config:
+        storage:
+          volume_name: test_jobs_storage
+    - provider: gpu
+      profile: docker_gpu
+      backend: docker
+      config:
+        storage:
+          volume_name: test_jobs_storage
+    - provider: cpu
+      profile: k8s
+      backend: kubernetes_job
+      config:
+        storage:
+          pvc_name: test_jobs_storage
+    - provider: gpu
+      profile: default
+      backend: kubernetes_job
+      config:
+        storage:
+          pvc_name: test_jobs_storage
+"""
+
+    # Create a temporary file and write the YAML content
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as temp_file:
+        temp_file.write(yaml_content)
+        temp_file.flush()
+
+        # Load the configuration from the temporary file
+        jobs_config: JobsServiceConfig = Configuration.get_service_config_from_file(temp_file.name, JobsServiceConfig)
+        return jobs_config
+
+
+@pytest.fixture
+def job_config_kubernetes() -> JobsServiceConfig:
+    # Define the YAML content as a variable
+    yaml_content = """# This is the default configuration for the Jobs microservice.
+platform:
+  base_url: "http://localhost:8080"
+  runtime: "kubernetes"
+
+jobs:
+  # Executor profiles configuration
+  executors: []
+"""
+
+    # Create a temporary file and write the YAML content
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as temp_file:
+        temp_file.write(yaml_content)
+        temp_file.flush()
+
+        # Load the configuration from the temporary file
+        jobs_config: JobsServiceConfig = Configuration.get_service_config_from_file(temp_file.name, JobsServiceConfig)
+        return jobs_config
+
+
+@pytest.fixture
+def backend_registry(mock_nmp_client, job_config_with_many_profiles) -> BackendRegistry:
+    """Create a backend registry with test configuration."""
+    return BackendRegistry.from_config(
+        nmp_sdk=mock_nmp_client,
+        profiles=job_config_with_many_profiles.executors,
+        # Mock the backends
+        backends={
+            BackendKey("cpu", "docker"): MockDockerCPUJobBackend,
+            BackendKey("gpu", "docker"): MockDockerGPUJobBackend,
+            BackendKey("cpu", "kubernetes_job"): MockKubernetesCPUJobBackend,
+            BackendKey("gpu", "kubernetes_job"): MockKubernetesGPUJobBackend,
+        },
+    )
+
+
+class HelloWorldJobConfig(BaseModel):
+    config: str | object
+    target: str
+
+
+def hello_world_job_config(
+    workspace: str,
+    input_spec: HelloWorldJobConfig,
+    output_spec: HelloWorldJobConfig,
+    entity_client: EntityClient,
+    job_name: str | None,
+    sdk,
+) -> FactoryPlatformJobSpec:
+    return FactoryPlatformJobSpec(
+        steps=[
+            FactoryPlatformJobStep(
+                name="hello-world-step-1",
+                executor=FactoryCPUExecutionProviderSpec(
+                    provider="cpu",
+                    profile="default",
+                    container=FactoryContainerSpec(
+                        image="my-registry/hello-world-job:local",
+                        command=["python", "-m", "hello_world"],
+                        entrypoint=["--target", output_spec.target],
+                    ),
+                ),
+                config=output_spec.model_dump(),
+                environment=[PlatformJobEnvironmentVariableParam(name="ENV_VAR", value="test_value")],
+            ),
+        ]
+    )
+
+
+@pytest_asyncio.fixture
+async def test_client(mock_dispatcher, mock_store, job_config_with_many_profiles) -> AsyncGenerator[AsyncClient, None]:
+    # Mock the config.executors to have the test execution profiles
+    from nmp.common.auth.middleware import AuthorizationMiddleware
+    from nmp.common.service.dependencies import get_sdk_client
+    from nmp.core.jobs.config import config
+
+    with patch.object(config, "executors", job_config_with_many_profiles.executors):
+        app = FastAPI()
+
+        # Add auth middleware with auth disabled - this sets up auth_client_context
+        app.add_middleware(AuthorizationMiddleware)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+
+            async def override_get_dispatcher():
+                return mock_dispatcher
+
+            def override_get_entity_client():
+                return mock_store
+
+            # Create SDK for dependency injection
+            test_sdk = AsyncNeMoPlatform(base_url=ac.base_url, http_client=ac)
+
+            app.dependency_overrides[dep_dispatcher] = override_get_dispatcher
+            app.dependency_overrides[get_entity_client] = override_get_entity_client
+            app.dependency_overrides[get_sdk_client] = lambda: test_sdk
+
+            # Mount under /apis/jobs so SDK requests (e.g. /apis/jobs/v2/workspaces/default/jobs) hit the app
+            api_prefix = "/apis/jobs"
+            app.include_router(rerun_router, prefix=api_prefix)
+            app.include_router(router, prefix=api_prefix)
+
+            factory_router = job_route_factory(
+                service_name="hello-world",
+                job_type="HelloWorld",
+                job_input=HelloWorldJobConfig,
+                platform_job_config_compiler=hello_world_job_config,
+            )
+            app.include_router(
+                factory_router,
+                prefix=f"{api_prefix}/v2/workspaces/{{workspace}}/hello-world",
+                tags=["Hello World Microservice"],
+            )
+
+            yield ac
+
+
+@pytest.fixture
+def test_sdk(test_client: AsyncClient) -> AsyncNeMoPlatform:
+    # Disable retries to prevent duplicate entity creation attempts on transient errors
+    return AsyncNeMoPlatform(base_url=test_client.base_url, http_client=test_client, max_retries=0)

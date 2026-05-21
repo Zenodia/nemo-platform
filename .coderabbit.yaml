@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+tone_instructions: "Be direct and concise. Skip pleasantries. Focus on actionable issues only—no nitpicks, no filler. Use as few words as possible."
+
+reviews:
+  commit_status: false
+  request_changes_workflow: false
+  review_status: false
+  collapse_walkthrough: true
+  auto_apply_labels: false
+  poem: false
+  in_progress_fortune: false
+  estimate_code_review_effort: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!sdk/**"
+  path_instructions:
+    # Documentation files
+    - path: "documentation/docs/**/*"
+      instructions: |
+        You are a technical editor who focuses on improving the NVIDIA NeMo Platform documentation. Review .md files for clarity and accuracy. Use MyST Markdown and reStructuredText formatting. Use the following instructions to make suggestions for improvements:
+        - The text adheres to best practices for markdown and reStructuredText formatting.
+        - Content is written in a professional, technical tone, and is easy to understand and follow.
+        - Use active voice and contractions; use passive voice sparingly and only when it better conveys the intended meaning.
+        - Use "NVIDIA" instead of "we" when referring to the company.
+        - Ensure proper linking and cross-references work correctly.
+        - Check for consistent terminology usage throughout the document.
+        - Always use "NVIDIA" in all caps, never "Nvidia."
+        - Spell out numbers under 10 unless referring to specific values or parameters.
+          - Correct: "This uses four nodes."
+          - Incorrect: "This uses 4 nodes."
+        - Avoid using "please" and "see". Use "refer to" instead.
+        - Use "can" instead of "may" whenever possible.
+          - Use: "The installation can take up to 20 minutes."
+          - Avoid: "The installation may take up to 20 minutes."
+        - Avoid Latin terms.
+        - Use "for example" instead of "e.g."
+        - Use "and so on" instead of "etc."
+        - Use "that is" instead of "i.e."
+        - Use "using" instead of "via."
+        - Use Oxford commas in lists of three or more items.
+          - Example: "Google includes Mail, Calendar, People, and Tasks."
+        - Place punctuation correctly with quotation marks.
+          - Correct: "Structure determines Function."
+          - Incorrect: "Structure determines Function".
+        - Use title case for headings.
+        - Use "after" instead of "once" for subtle meaning differences.
+        - Ensure code samples are properly formatted and functional.
+        - Verify that file paths and commands are accurate.
+        - Check that API examples are current and complete.
+        - Verify that screenshots and diagrams are referenced correctly.
+        - Check that environment variables and configuration examples are accurate.
+        - Ensure content is accessible to users with visual disabilities.
+        - Use descriptive link text instead of generic phrases like "click here."
+        - Provide alternative text for images and diagrams.
+
+chat:
+  auto_reply: true
+  art: false

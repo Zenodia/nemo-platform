@@ -1,0 +1,3 @@
+# Evaluator agent benchmark MVP: one task with Evaluator SDK verification.
+evaluator-standalone-sdk-surface-discovery
+evaluator-standalone-sdk-simple-exact-match

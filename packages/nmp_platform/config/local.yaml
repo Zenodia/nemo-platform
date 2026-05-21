@@ -1,0 +1,94 @@
+# Local development configuration for running platform with quickstart infrastructure
+# Usage: NMP_CONFIG_FILE_PATH=packages/nmp_platform/config/local.yaml uv run nemo services run
+
+platform:
+  runtime: "docker"
+  base_url: "http://0.0.0.0:8080"
+  # GPU pool configuration. By default, "all" detected GPUs are used.
+  # To use specific GPUs, set to a comma-separated list of device IDs:
+  # docker:
+  #   reserved_gpu_device_ids: "0,1,2,3"  # Use specific GPUs
+
+# Common service configuration. Use defaults.
+service: {}
+
+auth:
+  enabled: false
+  policy_decision_point_provider: embedded
+  policy_decision_point_base_url: "http://localhost:8080"
+  # Low timeouts for fast test feedback (same as integration tests)
+  policy_data_refresh_interval: 2
+  bundle_cache_seconds: 0  # 0 = refresh on every authz call for instant permission changes
+  admin_email: "admin@example.com"
+
+  # --- Azure AD OIDC (NeMo Platform dev deployment) ---
+  # This config mirrors the dev deployment's Azure AD app registration.
+  # Uncomment the block below for local testing with the same auth provider.
+  # For Azure AD v2.0, audience must be the client ID (GUID), not the
+  # Application ID URI, because v2.0 access tokens set aud to the client ID.
+  # oidc:
+  #   enabled: true
+  #   issuer: "https://login.microsoftonline.com/43083d15-7273-40c1-b7db-39efd9ccc17a/v2.0"
+  #   client_id: "bbca6ec1-1e93-470e-b631-7076937da265"
+  #   audience: "bbca6ec1-1e93-470e-b631-7076937da265"
+  #   default_scopes: "platform:read platform:write openid profile email offline_access"
+  #   scope_prefix: "api://nmp/"
+
+# Entities service configuration (uses DATABASE_* env vars from local.env)
+entities: {}
+
+# Jobs service configuration
+jobs:
+  # Local path to the jobs-launcher binary used by the Docker job backend
+  executor_defaults:
+    docker:
+      # Allow inspecting job containers regardless of completion status
+      cleanup_completed_jobs_immediately: false
+      # Path to the jobs-launcher binary on the local filesystem
+      launcher_tool_path: ./services/core/jobs/jobs-launcher/jobs-launcher
+      ttl_seconds_before_active: 60
+      ttl_seconds_active: 3600
+      ttl_seconds_after_finished: 300
+      storage:
+        # Additional volume for E2E tests
+        additional_volume_mounts:
+        - volume_name: nmp-additional-volume
+          mount_path: /mnt/additional_storage
+          allow_create_volume: true
+    subprocess:
+      working_directory: /tmp/nmp-subprocess-jobs
+      cleanup_completed_jobs_immediately: false
+      ttl_seconds_before_active: 60
+      ttl_seconds_active: 3600
+      ttl_seconds_after_finished: 300
+
+evaluator:
+  recreate_existing_system_entities: True
+
+safe_synthesizer: {}
+
+models:
+  controller:
+    interval_seconds: 5
+    model_deployment_garbage_collection_ttl_seconds: 30
+    backends:
+      docker:
+        enabled: true
+
+# Inference gateway configuration - uses default values
+inference_gateway: {}
+
+# Secrets service configuration
+secrets:
+  # Allow key creation for local development
+  allow_key_creation: true
+
+# Files service configuration
+files:
+  default_storage_config:
+    type: local
+    path: ~/.local/share/nemo/files
+
+studio:
+  static_files_path: web/packages/studio/dist
+  sandbox_enabled: true

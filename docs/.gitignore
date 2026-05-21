@@ -1,0 +1,40 @@
+# Compiled python files
+*.pyc
+*.pyo
+
+# Visual Studio Code config
+.vscode/
+
+# PyCharm config
+.idea/
+
+# automatically generated folders
+_build/
+_html/
+_repo/
+_reference/
+_reference/**
+_generated/nemo*nb/
+_generated/pysdk/
+_test_serve/
+
+# automatically generated files
+*.7z
+*.tmp
+*latest*
+_static/versions1.json
+helm/_values.yaml
+
+# python venv
+.venv
+
+# artifacts from running ./scripts/build_docs.sh
+_build
+conf.py
+
+# temporary ipynb files
+*.tmp.ipynb
+
+# base64 content
+guardrails/_snippets/input/payload-street-view.json
+pysdk/reference/

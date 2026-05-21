@@ -1,0 +1,94 @@
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.35.1
+    container_name: envoy
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./envoy_local.yaml:/etc/envoy/envoy.yaml
+    networks:
+    - default
+    - nmp
+    depends_on:
+      - mock-llm
+      - ext_proc_server
+
+  mock-llm:
+    image: my-registry/guardrails-callout-mock-llm:local
+    container_name: mock-llm
+    command: /mock-server
+    environment:
+      DEFAULT_UNSAFE_CHUNK_ID: "88"
+      UNSAFE_CHUNK_WORD: ">>> YOU ARE FUCKING STUPID <<<"  # needs to be pretty aggressive profanity to trigger nemoguard
+      UNSAFE_TRIGGER: "TRIGGER"
+    ports:
+      - "8000:8000"
+    networks:
+      - default
+      - nmp
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "4317:4317"  # OTLP gRPC receiver
+      - "4318:4318"  # OTLP HTTP receiver
+      - "9464:9464"  # Prometheus exporter endpoint (for Prometheus to scrape)
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    restart: unless-stopped
+
+  zipkin:
+    image: ghcr.io/openzipkin/zipkin:latest
+    container_name: zipkin
+    ports:
+      - "9411:9411"  # Zipkin UI
+    environment:
+      - STORAGE_TYPE=mem
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml # re-use guardrails config
+    depends_on:
+      - otel-collector
+    networks:
+      - default
+      - nmp
+
+  ext_proc_server:
+    image: my-registry/guardrails-callout:local
+    container_name: ext_proc_server
+    command: /main
+    environment:
+      CONFIG_PATH: /app/config.yaml
+      GR_GRPC__TLS__ENABLED: false
+      GR_GRPC__ADDRESS: ":8181"
+      GR_GUARDRAILS__BASE_URL: "http://guardrails:7331"  # references guardrails in docker-compose.yml
+      GR_EXTPROC__EVENTS_PER_CHECK: 32
+      OTEL_SDK_DISABLED: "false"
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+    volumes:
+    - "${EXTPROC_CONFIG_PATH:-./config.yaml}:/app/config.yaml"
+    ports:
+      - ":8181"
+    networks:
+      - default
+      - nmp
+    depends_on:
+      - otel-collector
+      - zipkin
+
+networks:
+  nmp:
+    name: nmp
+    external: true

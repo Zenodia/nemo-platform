@@ -1,0 +1,11 @@
+!images/nemo-studio-ui/env.defaults.js
+# Allow environment type files to be committed
+!**/environment.*
+node_modules
+.DS_Store
+.idea
+.vscode
+.plans/
+optimization_results/
+optimizations/
+filestorage/

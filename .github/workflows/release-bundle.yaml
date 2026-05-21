@@ -1,0 +1,554 @@
+name: Release Bundle
+
+on:
+  workflow_call:
+    inputs:
+      cadence:
+        description: "Release cadence: nightly, rc, or release."
+        required: true
+        type: string
+      source_sha:
+        description: "Expected source commit SHA for RC/stable releases."
+        required: false
+        type: string
+        default: ""
+      version:
+        description: "SemVer core version for RC or stable releases, for example 1.0.0."
+        required: false
+        type: string
+        default: ""
+      release_date:
+        description: "Optional. Provide only for first-time registration of this release version. Leave blank for reruns or when this release version is already registered. Format: YYYY-MM-DD."
+        required: false
+        type: string
+        default: ""
+      release_scope:
+        description: "Release artifact scope: sdks or custom."
+        required: false
+        type: string
+        default: "sdks"
+      sdk_ids:
+        description: "Comma-separated SDK IDs for custom releases."
+        required: false
+        type: string
+        default: ""
+    secrets:
+      CI_DISPATCH_TOKEN:
+        description: "Token with access to send repository dispatch events to the dispatch repo."
+        required: true
+      CI_DISPATCH_REPO:
+        description: "Repository that receives release bundle handoff dispatch events."
+        required: true
+permissions:
+  contents: read
+
+jobs:
+  plan-release:
+    name: Plan release
+    runs-on: ubuntu-latest
+    # Normalize nightly and RC/stable planner results into one contract for downstream jobs.
+    # Later jobs should read needs.plan-release.outputs.* without caring which cadence produced them.
+    outputs:
+      source_repo: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.source_repo || github.repository }}
+      source_ref: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.source_ref || steps.resolve-release-metadata.outputs.source_ref }}
+      release_label: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.release_label || steps.resolve-release-metadata.outputs.release_label }}
+      nightly_timestamp: ${{ steps.resolve-nightly-source.outputs.nightly_timestamp }}
+      selected_artifacts_json: ${{ steps.plan-assets.outputs.selected_artifacts_json }}
+      sdk_count: ${{ steps.plan-assets.outputs.sdk_count }}
+      sdk_matrix: ${{ steps.plan-assets.outputs.sdk_matrix }}
+      release_tag: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.release_tag || steps.resolve-release-metadata.outputs.release_tag }}
+      release_date_json: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.release_date_json || steps.resolve-release-metadata.outputs.release_date_json }}
+      source_sha: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.source_sha || inputs.source_sha }}
+    steps:
+      # Fetch tags so RC auto-increment can use plain local Git.
+      - name: Checkout workflow code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Fail fast on cadence-specific inputs before source lookup or asset planning:
+      # nightly may pin an exact source SHA, while RC/stable require source SHA and version.
+      - name: Validate cadence contract
+        shell: bash
+        env:
+          CADENCE: ${{ inputs.cadence }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+          RELEASE_DATE: ${{ inputs.release_date }}
+        run: |
+          set -euo pipefail
+
+          case "${CADENCE}" in
+            nightly)
+              if [[ -n "${VERSION}" || -n "${RELEASE_DATE}" ]]; then
+                echo "::error::nightly releases must not provide version or release_date inputs"
+                exit 1
+              fi
+              ;;
+            rc | release)
+              if [[ -z "${SOURCE_SHA}" || -z "${VERSION}" ]]; then
+                echo "::error::rc and stable releases require source_sha and version inputs"
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unknown release cadence: ${CADENCE}"
+              exit 1
+              ;;
+          esac
+
+          if [[ -n "${SOURCE_SHA}" && ! "${SOURCE_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::source_sha must be a full 40-character commit SHA"
+            exit 1
+          fi
+
+      # Nightly defaults to the repository default branch, but may pin an exact source SHA.
+      - name: Resolve nightly source
+        id: resolve-nightly-source
+        if: inputs.cadence == 'nightly'
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          timestamp="$(date -u +%Y%m%d%H%M%S)"
+
+          if [[ -n "${SOURCE_SHA}" ]]; then
+            source_ref="${SOURCE_SHA}"
+            source_sha="${SOURCE_SHA}"
+          else
+            [[ -n "${DEFAULT_BRANCH}" ]] || { echo "::error::repository default branch is empty"; exit 1; }
+            source_ref="refs/heads/${DEFAULT_BRANCH}"
+            git fetch --no-tags --depth=1 origin "${source_ref}"
+            source_sha="$(git rev-parse --verify "FETCH_HEAD^{commit}")"
+          fi
+
+          {
+            printf 'source_repo=%s\n' "${GITHUB_REPOSITORY}"
+            printf 'source_ref=%s\n' "${source_ref}"
+            printf 'source_sha=%s\n' "${source_sha}"
+            printf 'nightly_timestamp=%s\n' "${timestamp}"
+            printf 'release_label=nightly-%s\n' "${timestamp}"
+            printf 'release_tag=\n'
+            printf 'release_date_json=null\n'
+          } >>"${GITHUB_OUTPUT}"
+
+      # RC/stable use the selected workflow branch plus manual version inputs:
+      # compute the release label/tag, auto-increment RC tags, and format release_date.
+      - name: Resolve RC/stable metadata
+        id: resolve-release-metadata
+        if: inputs.cadence != 'nightly'
+        shell: bash
+        env:
+          CADENCE: ${{ inputs.cadence }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          VERSION: ${{ inputs.version }}
+          RELEASE_DATE: ${{ inputs.release_date }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF}" != refs/heads/* ]]; then
+            echo "::error::rc and stable releases must run from a branch ref"
+            exit 1
+          fi
+
+          if ! git cat-file -e "${SOURCE_SHA}^{commit}" 2>/dev/null; then
+            echo "::error::source_sha is not a commit in this repository: ${SOURCE_SHA}"
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "${SOURCE_SHA}" "${GITHUB_SHA}"; then
+            echo "::error::source_sha must be reachable from the selected workflow branch"
+            exit 1
+          fi
+
+          if [[ ! "${VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::version must be SemVer core MAJOR.MINOR.PATCH, for example 1.0.0"
+            exit 1
+          fi
+
+          if [[ "${CADENCE}" == "rc" ]]; then
+            rc_prefix="${VERSION}-rc"
+            existing_rcs="$(git tag -l "${rc_prefix}*" | grep -E "^${rc_prefix}[0-9]+$" | sort -V || true)"
+
+            if [[ -z "${existing_rcs}" ]]; then
+              next_rc=0
+            else
+              last_rc="$(echo "${existing_rcs}" | tail -n 1)"
+              last_rc_number="${last_rc#"${rc_prefix}"}"
+              next_rc=$((10#${last_rc_number} + 1))
+            fi
+
+            release_label="${rc_prefix}${next_rc}"
+          else
+            release_label="${VERSION}"
+          fi
+
+          release_date_json="null"
+          if [[ -n "${RELEASE_DATE}" ]]; then
+            if [[ ! "${RELEASE_DATE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "::error::release_date must use YYYY-MM-DD format"
+              exit 1
+            fi
+            if [[ "$(date -u -d "${RELEASE_DATE}" +%Y-%m-%d 2>/dev/null)" != "${RELEASE_DATE}" ]]; then
+              echo "::error::release_date must be a valid calendar date"
+              exit 1
+            fi
+            release_date_json="\"${RELEASE_DATE}\""
+          fi
+
+          {
+            printf 'source_ref=%s\n' "${GITHUB_REF}"
+            printf 'release_label=%s\n' "${release_label}"
+            printf 'release_tag=%s\n' "${release_label}"
+            printf 'release_date_json=%s\n' "${release_date_json}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Checkout selected source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ inputs.cadence == 'nightly' && steps.resolve-nightly-source.outputs.source_sha || inputs.source_sha }}
+          path: source
+
+      # Plan SDK-only V1 artifacts before any release side effects:
+      # sdks selects every catalog SDK; custom selects listed sdk_ids.
+      - name: Plan release assets
+        id: plan-assets
+        shell: bash
+        env:
+          RELEASE_SCOPE: ${{ inputs.release_scope }}
+          SDK_IDS: ${{ inputs.sdk_ids }}
+        run: |
+          set -euo pipefail
+
+          catalog="source/release/assets.yaml"
+          [[ -f "${catalog}" ]] || { echo "::error::release asset catalog is missing: ${catalog}"; exit 1; }
+
+          sdk_catalog="$(yq -o=json '.sdk' "${catalog}" | jq -c 'if type == "array" then map(.id) else . end')"
+          if ! jq -e 'type == "array" and all(.[]; type == "string" and length > 0)' <<<"${sdk_catalog}" >/dev/null; then
+            echo "::error::release/assets.yaml sdk must contain non-empty string id values"
+            exit 1
+          fi
+
+          if ! jq -e 'length == (unique | length)' <<<"${sdk_catalog}" >/dev/null; then
+            echo "::error::release/assets.yaml sdk contains duplicate ids"
+            exit 1
+          fi
+
+          case "${RELEASE_SCOPE}" in
+            sdks | custom)
+              ;;
+            *)
+              echo "::error::Unknown release_scope: ${RELEASE_SCOPE}"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${RELEASE_SCOPE}" != "custom" && -n "${SDK_IDS}" ]]; then
+            echo "::error::sdk_ids can only be used when release_scope is custom"
+            exit 1
+          fi
+
+          case "${RELEASE_SCOPE}" in
+            sdks)
+              selected_sdk_ids="${sdk_catalog}"
+              ;;
+            custom)
+              if [[ -z "${SDK_IDS}" ]]; then
+                echo "::error::custom release_scope requires sdk_ids"
+                exit 1
+              fi
+              custom_sdk_ids="$(jq -Rnc --arg value "${SDK_IDS}" '$value | split(",") | map(gsub("^\\s+|\\s+$"; ""))')"
+              if jq -e 'any(.[]; length == 0)' <<<"${custom_sdk_ids}" >/dev/null; then
+                echo "::error::sdk_ids contains an empty entry"
+                exit 1
+              fi
+              if ! jq -e 'length == (unique | length)' <<<"${custom_sdk_ids}" >/dev/null; then
+                echo "::error::sdk_ids contains duplicate entries"
+                exit 1
+              fi
+              unknown="$(jq -nc --argjson selected "${custom_sdk_ids}" --argjson catalog "${sdk_catalog}" '$selected - $catalog')"
+              if [[ "${unknown}" != "[]" ]]; then
+                echo "::error::unknown sdk id(s): $(jq -r 'join(", ")' <<<"${unknown}")"
+                exit 1
+              fi
+              selected_sdk_ids="${custom_sdk_ids}"
+              ;;
+          esac
+
+          if [[ "$(jq 'length' <<<"${selected_sdk_ids}")" == "0" ]]; then
+            echo "::error::release selection must include at least one supported SDK artifact"
+            exit 1
+          fi
+
+          sdk_artifacts_json="$(jq -nc --argjson ids "${selected_sdk_ids}" '$ids | map({type: "sdk", id: .})')"
+          selected_artifacts_json="${sdk_artifacts_json}"
+          sdk_matrix="$(jq -nc --argjson artifacts "${sdk_artifacts_json}" '{include: $artifacts}')"
+          sdk_count="$(jq -r 'length' <<<"${selected_sdk_ids}")"
+
+          {
+            printf 'selected_artifacts_json=%s\n' "${selected_artifacts_json}"
+            printf 'sdk_count=%s\n' "${sdk_count}"
+            printf 'sdk_matrix=%s\n' "${sdk_matrix}"
+          } >>"${GITHUB_OUTPUT}"
+
+          echo "Planned SDK release artifacts: $(jq -r 'join(", ")' <<<"${selected_sdk_ids}")"
+
+  reserve-release-tag:
+    name: Reserve release tag
+    needs: plan-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source at release SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.plan-release.outputs.source_sha }}
+          fetch-tags: true
+
+      # Reserve the tag before build jobs so a tagged RC attempt consumes its RC number.
+      - name: Create and push tag
+        shell: bash
+        env:
+          CADENCE: ${{ inputs.cadence }}
+          RELEASE_TAG: ${{ needs.plan-release.outputs.release_tag }}
+          SOURCE_SHA: ${{ needs.plan-release.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${CADENCE}" == "nightly" ]]; then
+            echo "Nightly cadence: no release tag to reserve."
+            exit 0
+          fi
+
+          [[ -n "${RELEASE_TAG}" ]] || { echo "::error::release_tag is required"; exit 1; }
+          [[ -n "${SOURCE_SHA}" ]] || { echo "::error::source_sha is required"; exit 1; }
+
+          if git show-ref --tags --verify --quiet "refs/tags/${RELEASE_TAG}"; then
+            existing_sha="$(git rev-list -n 1 "refs/tags/${RELEASE_TAG}")"
+            if [[ "${existing_sha}" == "${SOURCE_SHA}" ]]; then
+              echo "Release tag '${RELEASE_TAG}' already points at '${SOURCE_SHA}'."
+              exit 0
+            fi
+
+            echo "::error::release tag '${RELEASE_TAG}' already points at '${existing_sha}', not '${SOURCE_SHA}'"
+            exit 1
+          fi
+
+          git tag "${RELEASE_TAG}"
+          git push origin "refs/tags/${RELEASE_TAG}"
+          echo "Created release tag '${RELEASE_TAG}' at '${SOURCE_SHA}'."
+
+  build-sdks:
+    name: Build SDK (${{ matrix.id }})
+    needs: [plan-release, reserve-release-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan-release.outputs.sdk_matrix) }}
+    steps:
+      - name: Checkout workflow code
+        uses: actions/checkout@v6
+        with:
+          path: workflow
+
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ needs.plan-release.outputs.source_repo }}
+          ref: ${{ needs.plan-release.outputs.source_sha }}
+          path: source
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          version-file: source/pyproject.toml
+          cache-dependency-glob: source/uv.lock
+
+      - name: Set up pnpm
+        if: matrix.id == 'nemo-platform'
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: source/web/package.json
+
+      - name: Set up Node.js
+        if: matrix.id == 'nemo-platform'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: source/web/pnpm-lock.yaml
+
+      # Stamp the checked-out source so the wheel metadata matches the planned release label.
+      - name: Stamp SDK version
+        shell: bash
+        env:
+          CADENCE: ${{ inputs.cadence }}
+          RELEASE_LABEL: ${{ needs.plan-release.outputs.release_label }}
+          NIGHTLY_TIMESTAMP: ${{ needs.plan-release.outputs.nightly_timestamp }}
+          SDK_ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+
+          uv run python workflow/.github/scripts/stamp_sdk_version.py \
+            --source-root source \
+            --sdk-id "${SDK_ID}" \
+            --cadence "${CADENCE}" \
+            --release-label "${RELEASE_LABEL}" \
+            --nightly-timestamp "${NIGHTLY_TIMESTAMP}"
+
+      - name: Build SDK wheel
+        id: build-sdk-wheel
+        shell: bash
+        env:
+          SDK_ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+
+          wheel_dir="${GITHUB_WORKSPACE}/release-sdk-wheel"
+          rm -rf "${wheel_dir}"
+          mkdir -p "${wheel_dir}"
+
+          uv build --wheel \
+            --directory source \
+            --package "${SDK_ID}" \
+            --out-dir "${wheel_dir}"
+
+          shopt -s nullglob
+          wheels=("${wheel_dir}"/*.whl)
+          if [[ "${#wheels[@]}" -ne 1 ]]; then
+            echo "::error::expected exactly one wheel for sdk:${SDK_ID}, found ${#wheels[@]}"
+            exit 1
+          fi
+
+          printf 'wheel_path=%s\n' "${wheels[0]}" >>"${GITHUB_OUTPUT}"
+          echo "Built sdk:${SDK_ID} -> ${wheels[0]}."
+
+      - name: Upload SDK wheel
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-sdk-${{ matrix.id }}
+          path: ${{ steps.build-sdk-wheel.outputs.wheel_path }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  assemble-release-bundle:
+    name: Assemble release bundle
+    needs: [plan-release, build-sdks]
+    runs-on: ubuntu-latest
+    outputs:
+      bundle_artifact_id: ${{ steps.upload-release-bundle.outputs.artifact-id }}
+      bundle_artifact_name: release-bundle-${{ needs.plan-release.outputs.release_label }}
+      bundle_artifact_digest: ${{ steps.upload-release-bundle.outputs.artifact-digest }}
+    steps:
+      - name: Checkout workflow code
+        uses: actions/checkout@v6
+
+      - name: Download SDK wheels
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-sdk-*
+          path: downloaded-sdk-artifacts
+          merge-multiple: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.11"
+
+      - name: Write release bundle metadata
+        shell: bash
+        env:
+          CADENCE: ${{ inputs.cadence }}
+          RELEASE_LABEL: ${{ needs.plan-release.outputs.release_label }}
+          RELEASE_DATE_JSON: ${{ needs.plan-release.outputs.release_date_json }}
+          SELECTED_ARTIFACTS_JSON: ${{ needs.plan-release.outputs.selected_artifacts_json }}
+          SOURCE_SHA: ${{ needs.plan-release.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          uv run --no-project python .github/scripts/write_release_bundle_metadata.py \
+            --sdk-artifacts-dir downloaded-sdk-artifacts \
+            --bundle-dir release-bundle \
+            --selected-artifacts-json "${SELECTED_ARTIFACTS_JSON}" \
+            --cadence "${CADENCE}" \
+            --release-label "${RELEASE_LABEL}" \
+            --release-date-json "${RELEASE_DATE_JSON}" \
+            --source-sha "${SOURCE_SHA}"
+
+      - name: Verify release bundle checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd release-bundle
+          sha256sum -c checksums.txt
+
+      - name: Upload release bundle
+        id: upload-release-bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-bundle-${{ needs.plan-release.outputs.release_label }}
+          path: release-bundle/
+          if-no-files-found: error
+          overwrite: true
+
+  dispatch-release-bundle:
+    name: Dispatch release bundle
+    needs: assemble-release-bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send release bundle pointer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}
+          DISPATCH_REPO: ${{ secrets.CI_DISPATCH_REPO }}
+          BUNDLE_REPO: ${{ github.repository }}
+          BUNDLE_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          BUNDLE_WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          BUNDLE_ARTIFACT_ID: ${{ needs.assemble-release-bundle.outputs.bundle_artifact_id }}
+          BUNDLE_ARTIFACT_NAME: ${{ needs.assemble-release-bundle.outputs.bundle_artifact_name }}
+          BUNDLE_ARTIFACT_DIGEST: ${{ needs.assemble-release-bundle.outputs.bundle_artifact_digest }}
+        run: |
+          set -euo pipefail
+
+          [[ -n "${GH_TOKEN:-}" ]] || { echo "::error::CI_DISPATCH_TOKEN must be set"; exit 1; }
+          [[ -n "${DISPATCH_REPO:-}" ]] || { echo "::error::CI_DISPATCH_REPO must be set"; exit 1; }
+          [[ -n "${BUNDLE_REPO:-}" ]] || { echo "::error::bundle repo is required"; exit 1; }
+          [[ -n "${BUNDLE_WORKFLOW_RUN_ID:-}" ]] || { echo "::error::bundle workflow run id is required"; exit 1; }
+          [[ -n "${BUNDLE_WORKFLOW_RUN_ATTEMPT:-}" ]] || { echo "::error::bundle workflow run attempt is required"; exit 1; }
+          [[ -n "${BUNDLE_ARTIFACT_ID:-}" ]] || { echo "::error::bundle artifact id is required"; exit 1; }
+          [[ -n "${BUNDLE_ARTIFACT_NAME:-}" ]] || { echo "::error::bundle artifact name is required"; exit 1; }
+          [[ -n "${BUNDLE_ARTIFACT_DIGEST:-}" ]] || { echo "::error::bundle artifact digest is required"; exit 1; }
+
+          jq -n \
+            --arg bundle_repo "${BUNDLE_REPO}" \
+            --arg bundle_workflow_run_id "${BUNDLE_WORKFLOW_RUN_ID}" \
+            --arg bundle_workflow_run_attempt "${BUNDLE_WORKFLOW_RUN_ATTEMPT}" \
+            --arg bundle_artifact_id "${BUNDLE_ARTIFACT_ID}" \
+            --arg bundle_artifact_name "${BUNDLE_ARTIFACT_NAME}" \
+            --arg bundle_artifact_digest "${BUNDLE_ARTIFACT_DIGEST}" \
+            '{
+              event_type: "release-bundle-produced",
+              client_payload: {
+                bundle: {
+                  repo: $bundle_repo,
+                  workflow_run_id: $bundle_workflow_run_id,
+                  workflow_run_attempt: $bundle_workflow_run_attempt,
+                  artifact_id: $bundle_artifact_id,
+                  artifact_name: $bundle_artifact_name,
+                  artifact_digest: $bundle_artifact_digest
+                }
+              }
+            }' \
+          | gh api -X POST "/repos/${DISPATCH_REPO}/dispatches" --input -

@@ -1,0 +1,55 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+.nv-variable-text-area .cm-editor {
+  background: transparent;
+}
+.nv-variable-text-area .cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-editor .nv-variable-known {
+  color: var(--nv-variable-known-color, #76b900);
+}
+
+/* Autocomplete tooltip — KUI dropdown look */
+.cm-tooltip.nv-kui-autocomplete {
+  background-color: var(--background-color-surface-overlay);
+  border: 1px solid var(--border-color-base);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 4px;
+  overflow: hidden;
+}
+
+.cm-tooltip.nv-kui-autocomplete > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.cm-tooltip.nv-kui-autocomplete > ul > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-color-primary);
+  font-size: 14px;
+}
+
+.cm-tooltip.nv-kui-autocomplete > ul > li[aria-selected] {
+  background-color: var(--background-color-interaction-hover);
+}
+
+.cm-tooltip.nv-kui-autocomplete .cm-completionDetail {
+  color: var(--text-color-secondary);
+  font-size: 12px;
+  margin-left: auto;
+}
+.cm-editor .nv-variable-unknown {
+  color: var(--nv-variable-unknown-color, #ff9b3d);
+}

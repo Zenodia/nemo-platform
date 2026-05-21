@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+
+version = 1
+SPDX-PackageName = "nemo-microservices-platform"
+SPDX-PackageSupplier = "NVIDIA Corporation"
+
+# Default for files without explicit headers
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved."
+SPDX-License-Identifier = "Apache-2.0"

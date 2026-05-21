@@ -1,0 +1,62 @@
+[project]
+name = "nemo-anonymizer-plugin"
+version = "0.1.0"
+description = "NeMo Anonymizer plugin."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "NVIDIA", email = "nemo@nvidia.com" }]
+dependencies = [
+    "nemo-platform-plugin",
+    "nemo-platform",
+    "nemo-anonymizer>=0.1.0",
+    "data-designer==0.5.7",
+    "data-designer-nemo",
+    "nmp-common",
+    "httpx>=0.27",
+    "fastapi",
+    "pandas",
+    "pyyaml>=6.0",
+]
+
+[project.entry-points."nemo.services"]
+anonymizer = "nemo_anonymizer_plugin.service:AnonymizerService"
+
+[project.entry-points."nemo.cli"]
+anonymizer = "nemo_anonymizer_plugin.cli:AnonymizerCLI"
+
+[project.entry-points."nemo.sdk"]
+anonymizer = "nemo_anonymizer_plugin.sdk.resources:anonymizer_sdk_resources"
+
+[project.entry-points."nemo.jobs"]
+"anonymizer.run" = "nemo_anonymizer_plugin.jobs.run:RunJob"
+
+[project.entry-points."nemo.functions"]
+"anonymizer.preview" = "nemo_anonymizer_plugin.functions.preview:PreviewFunction"
+
+[project.entry-points."nemo.skills"]
+anonymizer = "nemo_anonymizer_plugin.skills:get_skills_path"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+    "fastapi>=0.115",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nemo_anonymizer_plugin"]
+
+[tool.uv.sources]
+nemo-platform = { workspace = true }
+nemo-platform-plugin = { workspace = true }
+data-designer-nemo = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]

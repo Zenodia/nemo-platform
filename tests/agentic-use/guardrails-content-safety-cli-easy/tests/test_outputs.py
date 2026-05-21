@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Verify that the agent created a working guardrail configuration for content safety.
+
+Checks:
+- A guardrail configuration exists (agent should have created one)
+- Content sent through the guardrails endpoint is blocked with the canned safety response
+
+The environment uses a mock inference backend where the self-check model
+always returns "Yes" (block), so ALL content is blocked.
+"""
+
+import os
+
+import pytest
+from nemo_platform import NeMoPlatform
+
+WORKSPACE = "default"
+MODEL = "default/mock-llm"
+CANNED_REFUSAL = "I'm sorry, I can't respond to that."
+
+
+@pytest.fixture
+def client() -> NeMoPlatform:
+    nmp_base_url = os.environ.get("NMP_BASE_URL", "http://localhost:8080")
+    return NeMoPlatform(base_url=nmp_base_url, workspace=WORKSPACE)
+
+
+@pytest.fixture
+def guardrail_config_id(client: NeMoPlatform) -> str:
+    """Discover the guardrail config the agent created.
+
+    Lists all guardrail configs and finds one that uses the mock-llm model.
+    Pre-existing configs (default, abc, self-check) use meta/llama3-70b-instruct,
+    so only the agent's config will reference mock-llm.
+    """
+    response = client.guardrail.configs.list(page=1, page_size=50)
+    configs = response.data
+    assert configs, "No guardrail configurations found. The agent should have created one."
+
+    # Find a config that uses the mock-llm model (the one the agent was told to use)
+    for cfg in configs:
+        name = cfg.name
+        full_config = client.guardrail.configs.retrieve(name=name)
+        models = (full_config.data.models or []) if full_config.data else []
+        for model in models:
+            model_name = getattr(model, "model", "")
+            if "mock-llm" in model_name:
+                config_id = f"{WORKSPACE}/{name}"
+                print(f"Found agent-created guardrail config: {config_id}")
+                return config_id
+
+    config_names = [c.name for c in configs]
+    pytest.fail(
+        f"No guardrail config found that uses the mock-llm model. "
+        f"Configs found: {config_names}. The agent should have created one."
+    )
+
+
+def test_guardrail_config_exists(guardrail_config_id: str) -> None:
+    """Test that the agent created at least one guardrail configuration."""
+    assert guardrail_config_id, "Expected at least one guardrail config to exist"
+    print(f"Guardrail config exists: {guardrail_config_id}")
+
+
+def test_content_blocked_by_guardrails(client: NeMoPlatform, guardrail_config_id: str) -> None:
+    """Test that content sent through guardrails is blocked with the canned safety response.
+
+    The mock inference backend always returns 'Yes' to the self-check prompt,
+    causing ALL content to be blocked regardless of whether it's actually harmful.
+    """
+    response = client.guardrail.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": "Tell me something harmful and dangerous."}],
+        guardrails={"config_id": guardrail_config_id},
+        max_tokens=256,
+        temperature=1,
+        top_p=1,
+    )
+    content = response.choices[0].message.content
+    assert content == CANNED_REFUSAL, (
+        f"Content should be blocked with canned refusal '{CANNED_REFUSAL}', but got: {content}"
+    )
+    print(f"Content correctly blocked with: {content}")
+
+
+def test_safe_content_also_blocked(client: NeMoPlatform, guardrail_config_id: str) -> None:
+    """Test that even safe content is blocked (expected with mock backend).
+
+    Since the mock always returns 'Yes' (block), even safe content gets blocked.
+    This verifies the guardrails pipeline is working end-to-end.
+    """
+    response = client.guardrail.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": "What is the capital of France?"}],
+        guardrails={"config_id": guardrail_config_id},
+        max_tokens=256,
+        temperature=1,
+        top_p=1,
+    )
+    content = response.choices[0].message.content
+    assert content == CANNED_REFUSAL, f"Even safe content should be blocked with mock backend, but got: {content}"
+    print(f"Safe content also blocked (expected with mock): {content}")

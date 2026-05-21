@@ -1,0 +1,266 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""ATIF v1.7 domain and mapper tests."""
+
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+import pytest
+from nmp.intake.spans.api.spans_schemas import Span
+from nmp.intake.spans.ingest.atif import AtifIngestRequest
+from nmp.intake.spans.ingest.atif_domain import (
+    AtifAgent,
+    AtifStepUser,
+    AtifSubagentTrajectoryRef,
+    AtifTrajectory,
+)
+from nmp.intake.spans.ingest.atif_mapping import trajectory_to_spans
+from nmp.intake.spans.ingest.evaluation_context import EvaluationContext
+from pydantic import ValidationError
+
+EVALUATION_CONTEXT: dict[str, Any] = {
+    "evaluation_id": "eval-sample-agent-baseline",
+    "evaluation_sha": "abc132901",
+    "evaluation_run_id": "evalrun-01JZ8Q7K6V7R3X9N2M4P5A6B7C",
+    "dataset_id": "sample-dataset",
+    "dataset_name": "Sample Dataset",
+    "dataset_version": "v1",
+    "test_case_id": "sample-test-case",
+    "metadata": {"attempt": 1},
+}
+
+
+def test_atif_v17_models_accept_new_fields() -> None:
+    trajectory = AtifTrajectory.model_validate(
+        {
+            "schema_version": "ATIF-v1.7",
+            "session_id": "trace-session-id",
+            "trajectory_id": "root-trajectory",
+            "agent": {"name": "sample-agent", "version": "1.0.0"},
+            "steps": [
+                {
+                    "step_id": 1,
+                    "source": "agent",
+                    "message": "delegating",
+                    "llm_call_count": 1,
+                    "observation": {
+                        "results": [
+                            {
+                                "content": "delegated",
+                                "extra": {"retrieval_score": 0.92},
+                                "subagent_trajectory_ref": [
+                                    {"trajectory_id": "sub-trajectory", "session_id": "trace-session-id"}
+                                ],
+                            }
+                        ]
+                    },
+                }
+            ],
+            "subagent_trajectories": [
+                {
+                    "schema_version": "ATIF-v1.7",
+                    "session_id": "trace-session-id",
+                    "trajectory_id": "sub-trajectory",
+                    "agent": {"name": "subagent", "version": "1.0"},
+                    "steps": [],
+                }
+            ],
+        }
+    )
+
+    assert trajectory.schema_version == "ATIF-v1.7"
+    assert trajectory.trajectory_id == "root-trajectory"
+    assert trajectory.steps[0].llm_call_count == 1
+    assert trajectory.subagent_trajectories is not None
+    assert trajectory.subagent_trajectories[0].trajectory_id == "sub-trajectory"
+
+
+def test_atif_v17_embedded_subagent_trajectories_are_preserved_but_not_expanded() -> None:
+    trajectory = AtifTrajectory.model_validate(
+        {
+            "schema_version": "ATIF-v1.7",
+            "session_id": "trace-session-id",
+            "agent": {"name": "root", "version": "1.0"},
+            "steps": [],
+            "subagent_trajectories": [
+                {
+                    "schema_version": "ATIF-v1.7",
+                    "session_id": "trace-session-id",
+                    "trajectory_id": "sub-trajectory",
+                    "agent": {"name": "subagent", "version": "1.0"},
+                    "steps": [{"step_id": 1, "source": "user", "message": "subagent work"}],
+                }
+            ],
+        }
+    )
+
+    spans = trajectory_to_spans(
+        workspace="default",
+        trajectory=trajectory,
+        ingested_at=datetime(2026, 5, 18, tzinfo=timezone.utc),
+    )
+
+    assert [span.name for span in spans] == ["atif-trajectory"]
+    root_raw = json.loads(spans[0].attributes_string["atif.raw"])
+    assert root_raw["subagent_trajectories"][0]["trajectory_id"] == "sub-trajectory"
+    assert root_raw["subagent_trajectories"][0]["steps"][0]["message"] == "subagent work"
+
+
+def test_atif_v17_subagent_ref_requires_resolution_key() -> None:
+    with pytest.raises(ValidationError, match="trajectory_id, trajectory_path, or session_id"):
+        AtifSubagentTrajectoryRef()
+
+    assert AtifSubagentTrajectoryRef(session_id="trace-session-id").session_id == "trace-session-id"
+
+    with pytest.raises(ValidationError, match="trajectory_id or trajectory_path"):
+        AtifTrajectory.model_validate(
+            {
+                "schema_version": "ATIF-v1.7",
+                "session_id": "trace-session-id",
+                "agent": {"name": "root", "version": "1.0"},
+                "steps": [
+                    {
+                        "step_id": 1,
+                        "source": "agent",
+                        "message": "delegating",
+                        "observation": {
+                            "results": [
+                                {"subagent_trajectory_ref": [{"session_id": "trace-session-id"}]},
+                            ]
+                        },
+                    }
+                ],
+            }
+        )
+
+    legacy = AtifTrajectory.model_validate(
+        {
+            "schema_version": "ATIF-v1.6",
+            "session_id": "trace-session-id",
+            "agent": {"name": "root", "version": "1.0"},
+            "steps": [
+                {
+                    "step_id": 1,
+                    "source": "agent",
+                    "message": "delegating",
+                    "observation": {
+                        "results": [
+                            {"subagent_trajectory_ref": [{"session_id": "trace-session-id"}]},
+                        ]
+                    },
+                }
+            ],
+        }
+    )
+    legacy_ref = legacy.steps[0].observation.results[0].subagent_trajectory_ref[0]
+    assert legacy_ref.session_id == "trace-session-id"
+
+    assert AtifSubagentTrajectoryRef(trajectory_id="sub-trajectory").trajectory_id == "sub-trajectory"
+    assert AtifSubagentTrajectoryRef(trajectory_path="subagents/sub-trajectory.json").trajectory_path is not None
+
+
+def test_evaluation_context_requires_run_id_when_any_context_field_is_set() -> None:
+    assert EvaluationContext() == EvaluationContext(metadata={})
+    assert EvaluationContext(evaluation_run_id="evalrun-1").evaluation_run_id == "evalrun-1"
+
+    with pytest.raises(ValidationError, match="evaluation_run_id"):
+        EvaluationContext(evaluation_id="eval-1")
+
+    with pytest.raises(ValidationError, match="evaluation_run_id"):
+        EvaluationContext(metadata={"attempt": 1})
+
+
+def test_atif_ingest_request_rejects_legacy_top_level_project() -> None:
+    body = {
+        "schema_version": "ATIF-v1.7",
+        "session_id": "trace-session-id",
+        "project": "legacy-project",
+        "agent": {"name": "sample-agent", "version": "1.0.0"},
+        "steps": [],
+    }
+
+    with pytest.raises(ValidationError) as exc_info:
+        AtifIngestRequest.model_validate(body)
+
+    error_locations = {tuple(error["loc"]) for error in exc_info.value.errors()}
+    assert ("project",) in error_locations
+
+
+def test_atif_mapping_writes_evaluation_context_only_on_root_span() -> None:
+    trajectory = AtifTrajectory(
+        schema_version="ATIF-v1.5",
+        session_id="trace-session-id",
+        evaluation_context=EvaluationContext.model_validate(EVALUATION_CONTEXT),
+        agent=AtifAgent(
+            name="sample-agent",
+            version="1.0.0",
+            model_name="provider/sample-model",
+        ),
+        steps=[AtifStepUser(step_id=1, source="user", message="solve")],
+    )
+
+    spans = trajectory_to_spans(
+        workspace="default",
+        trajectory=trajectory,
+        ingested_at=datetime(2026, 5, 18, tzinfo=timezone.utc),
+    )
+
+    root = next(span for span in spans if span.name == "atif-trajectory")
+    child = next(span for span in spans if span.name == "user-1")
+    assert root.attributes_string["evaluation.id"] == EVALUATION_CONTEXT["evaluation_id"]
+    assert root.attributes_string["evaluation.sha"] == EVALUATION_CONTEXT["evaluation_sha"]
+    assert root.attributes_string["evaluation.run_id"] == EVALUATION_CONTEXT["evaluation_run_id"]
+    assert root.attributes_string["dataset.id"] == EVALUATION_CONTEXT["dataset_id"]
+    assert root.attributes_string["dataset.name"] == EVALUATION_CONTEXT["dataset_name"]
+    assert root.attributes_string["dataset.version"] == EVALUATION_CONTEXT["dataset_version"]
+    assert root.attributes_string["dataset.test_case_id"] == EVALUATION_CONTEXT["test_case_id"]
+    assert json.loads(root.attributes_string["evaluation.metadata"]) == EVALUATION_CONTEXT["metadata"]
+
+    root_response = Span.from_domain(root)
+    assert root_response.evaluation_context is not None
+    assert root_response.evaluation_context.evaluation_id == EVALUATION_CONTEXT["evaluation_id"]
+    assert root_response.evaluation_context.evaluation_sha == EVALUATION_CONTEXT["evaluation_sha"]
+    assert root_response.evaluation_context.evaluation_run_id == EVALUATION_CONTEXT["evaluation_run_id"]
+    assert root_response.evaluation_context.dataset_id == EVALUATION_CONTEXT["dataset_id"]
+    assert root_response.evaluation_context.dataset_name == EVALUATION_CONTEXT["dataset_name"]
+    assert root_response.evaluation_context.dataset_version == EVALUATION_CONTEXT["dataset_version"]
+    assert root_response.evaluation_context.test_case_id == EVALUATION_CONTEXT["test_case_id"]
+    assert root_response.evaluation_context.metadata == EVALUATION_CONTEXT["metadata"]
+    assert root_response.raw_attributes is not None
+    root_raw = json.loads(root_response.raw_attributes)
+    assert "evaluation_context" not in root_raw
+    assert "evaluation.metadata" not in root_raw
+
+    child_response = Span.from_domain(child)
+    assert child_response.evaluation_context is None
+    assert "evaluation.run_id" not in child.attributes_string
+    assert "evaluation.metadata" not in child.attributes_string
+
+
+def test_atif_mapping_span_ids_are_trace_native_and_ignore_evaluation_run_id() -> None:
+    base = {
+        "schema_version": "ATIF-v1.5",
+        "session_id": "trace-session-id",
+        "agent": {"name": "sample-agent", "version": "1.0.0"},
+        "steps": [{"step_id": 1, "source": "user", "message": "solve"}],
+    }
+    first = AtifTrajectory.model_validate(
+        {**base, "evaluation_context": {**EVALUATION_CONTEXT, "evaluation_run_id": "evalrun-a"}}
+    )
+    second = AtifTrajectory.model_validate(
+        {**base, "evaluation_context": {**EVALUATION_CONTEXT, "evaluation_run_id": "evalrun-b"}}
+    )
+
+    ingested_at = datetime(2026, 5, 18, tzinfo=timezone.utc)
+    first_ids = {
+        span.name: span.external_span_id
+        for span in trajectory_to_spans(workspace="default", trajectory=first, ingested_at=ingested_at)
+    }
+    second_ids = {
+        span.name: span.external_span_id
+        for span in trajectory_to_spans(workspace="default", trajectory=second, ingested_at=ingested_at)
+    }
+
+    assert first_ids == second_ids

@@ -1,0 +1,499 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useDebounce } from 'use-debounce';
+
+import * as DataView from '../../components/DataView/internal';
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '../../constants/pagination';
+
+const DEFAULT_COLUMN_PINNING = {
+  left: ['row-selection'],
+  right: ['row-actions'],
+};
+
+/**
+ * Extract the options type from DataView.useDataViewState (excluding undefined)
+ */
+type DataViewStateOptions = NonNullable<Parameters<typeof DataView.useDataViewState>[0]>;
+
+/**
+ * Options for useStudioDataViewState hook.
+ * Accepts the same options as DataView.useDataViewState, plus URL sync defaults.
+ * Note: `pagination` and `sorting` are read from URL params, not from options.
+ */
+export interface UseStudioDataViewStateOptions extends Omit<
+  DataViewStateOptions,
+  'pagination' | 'sorting'
+> {
+  /** Default page number (1-based) when not specified in URL. Defaults to 1. */
+  defaultPage?: number;
+  /** Default page size when not specified in URL. Defaults to 50. */
+  defaultPageSize?: number;
+  /**
+   * Default sorting when not specified in URL.
+   * Uses the same format as DataView's sorting state.
+   * Example: { id: 'created_at', desc: true } for descending by created_at.
+   */
+  defaultSort?: { id: string; desc: boolean };
+}
+
+export interface ApiFilter {
+  searchText?: string;
+  filter?: Record<string, unknown>;
+}
+
+/**
+ * Extended DataView state that includes helper functions for common table operations.
+ */
+export interface StudioDataViewState extends DataView.DataViewState {
+  /**
+   * Resets pagination to page 1 and clears row selection.
+   * Call this when search/filter criteria change to ensure users see results from the beginning.
+   */
+  resetPagination: () => void;
+  /** Debounced search bar value (300ms). Use this for API queries. */
+  debouncedSearchBar: string;
+  /** Debounced column filters (300ms). Use this for API queries. */
+  debouncedColumnFilters: DataView.TanstackTable.ColumnFiltersState;
+  /**
+   * Convention-mapped API filter object built from debounced columnFilters and searchBar.
+   * - `columnFilters` entries map to `filter` keys: `{id, value}` → `filter[id] = value`
+   * - `searchBar` is exposed as `searchText` when non-empty. Consumers are responsible for
+   *   mapping `searchText` onto the appropriate filter field (and wrapping it in an operator
+   *   like `$like` if fuzzy matching is desired).
+   */
+  apiFilter: ApiFilter;
+  /** Clears searchBar, columnFilters, and resets pagination. */
+  resetFilters: () => void;
+}
+
+/**
+ * Opinionated React hook that wraps {@link DataView.useDataViewState} to synchronize
+ * table state (pagination and sorting) with URL search parameters.
+ *
+ * Ensures DataView's pagination and sorting state and the URL's query params are always in sync,
+ * so that users can share/bookmark current view state, and can use browser navigation
+ * controls (back/forward) seamlessly.
+ *
+ * @param {UseStudioDataViewStateOptions} [options] - Accepts all options for DataView's useDataViewState
+ *   except `pagination` and `sorting`, plus `defaultPage`, `defaultPageSize`, and `defaultSort`
+ *   for setting fallback URL values.
+ *
+ * @returns {StudioDataViewState} - Extended DataView state object with URL sync and helper functions.
+ *
+ * @remarks
+ * - Page numbers in the URL are 1-based, while DataView expects 0-based pageIndex.
+ * - Sort in URL uses string format: "field" for ascending, "-field" for descending.
+ * - defaultSort uses DataView's object format: { id: 'field', desc: boolean }.
+ * - Pagination automatically resets to page 1 when sorting changes.
+ * - Use `resetPagination()` when search/filter criteria change.
+ * - Intended for table/data grid views where browser-driven navigation is desirable.
+ */
+export const useStudioDataViewState = (
+  options?: UseStudioDataViewStateOptions
+): StudioDataViewState => {
+  const {
+    defaultPage = DEFAULT_PAGE,
+    defaultPageSize = DEFAULT_PAGE_SIZE,
+    defaultSort,
+    ...dataViewOptions
+  } = options ?? {};
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Parse pagination from URL
+  const parsePageParam = (value: string | null, defaultValue: number): number => {
+    if (!value) return defaultValue;
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) || parsed < 1 ? defaultValue : parsed;
+  };
+
+  const urlPage = parsePageParam(searchParams.get('page'), defaultPage);
+  const urlPageSize = parsePageParam(searchParams.get('page_size'), defaultPageSize);
+
+  // Parse sort from URL, falling back to defaultSort
+  const sortParam = searchParams.get('sort');
+  const urlSorting = useMemo(
+    () =>
+      sortParam
+        ? {
+            id: sortParam.startsWith('-') ? sortParam.slice(1) : sortParam,
+            desc: sortParam.startsWith('-'),
+          }
+        : defaultSort,
+    [sortParam, defaultSort]
+  );
+
+  // Convert sorting object to URL string format
+  const defaultSortString = defaultSort
+    ? defaultSort.desc
+      ? `-${defaultSort.id}`
+      : defaultSort.id
+    : null;
+
+  // Update URL params helper
+  const updateUrlParams = useCallback(
+    ({
+      page,
+      pageSize,
+      sort,
+      search,
+      filters,
+    }: {
+      page?: number;
+      pageSize?: number;
+      sort?: string | null;
+      search?: string;
+      filters?: string | null;
+    }) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+
+          // Handle page
+          if (page !== undefined) {
+            if (page === defaultPage) {
+              next.delete('page');
+            } else {
+              next.set('page', String(page));
+            }
+          }
+
+          // Handle page_size
+          if (pageSize !== undefined) {
+            if (pageSize === defaultPageSize) {
+              next.delete('page_size');
+            } else {
+              next.set('page_size', String(pageSize));
+            }
+          }
+
+          // Handle sort
+          if (sort !== undefined) {
+            if (sort === null || sort === defaultSortString) {
+              next.delete('sort');
+            } else {
+              next.set('sort', sort);
+            }
+          }
+
+          // Handle search
+          if (search !== undefined) {
+            if (search === '') {
+              next.delete('s');
+            } else {
+              next.set('s', search);
+            }
+          }
+
+          // Handle filters
+          if (filters !== undefined) {
+            if (filters === null) {
+              next.delete('filters');
+            } else {
+              next.set('filters', encodeURIComponent(filters));
+            }
+          }
+
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams, defaultPage, defaultPageSize, defaultSortString]
+  );
+
+  // Parse search and filters from URL
+  const urlSearch = searchParams.get('s') ?? '';
+  const urlFiltersParam = searchParams.get('filters');
+  const urlColumnFilters = useMemo<DataView.TanstackTable.ColumnFiltersState>(() => {
+    if (!urlFiltersParam) return [];
+    try {
+      return JSON.parse(decodeURIComponent(urlFiltersParam));
+    } catch {
+      return [];
+    }
+  }, [urlFiltersParam]);
+
+  // Initialize DataView with pagination, sorting, search, and filters from URL.
+  // Default column pinning is set first so consumers can override via options.
+  const dataViewState = DataView.useDataViewState({
+    columnPinning: DEFAULT_COLUMN_PINNING,
+    ...dataViewOptions,
+    pagination: {
+      pageIndex: urlPage - 1,
+      pageSize: urlPageSize,
+    },
+    sorting: urlSorting,
+    searchBar: urlSearch,
+    columnFilters: urlColumnFilters,
+  });
+
+  // Track previous DataView state to detect internal changes
+  const prevPaginationRef = useRef(dataViewState.pagination.state);
+  const prevSortingRef = useRef(dataViewState.sorting.state);
+
+  // Track pending URL updates to avoid reverting changes before URL has updated
+  // This prevents the race condition where pagination.set() triggers a re-render
+  // before searchParams has updated, causing the old URL values to sync back.
+  const pendingSortRef = useRef<string | null | undefined>(undefined);
+  const pendingPageRef = useRef<number | undefined>(undefined);
+
+  /**
+   * Resets pagination to page 1 and clears row selection.
+   * Use this when search/filter criteria change.
+   */
+  const resetPagination = useCallback(() => {
+    const { pageIndex, pageSize } = dataViewState.pagination.state;
+
+    // Only reset if not already on page 0
+    if (pageIndex !== 0) {
+      prevPaginationRef.current = { pageIndex: 0, pageSize };
+      dataViewState.pagination.set((prev: { pageIndex: number; pageSize: number }) => ({
+        ...prev,
+        pageIndex: 0,
+      }));
+    }
+
+    // Clear row selection
+    dataViewState.rowSelection.set({});
+  }, [dataViewState.pagination, dataViewState.rowSelection]);
+
+  // Bidirectional pagination sync: DataView ↔ URL
+  // Priority: DataView changes sync to URL first. Only if DataView didn't change,
+  // then URL changes sync to DataView (e.g., browser back/forward).
+  // This prevents infinite loops by checking which side changed first.
+  useEffect(() => {
+    const { pageIndex, pageSize } = dataViewState.pagination.state;
+    const prev = prevPaginationRef.current;
+
+    const dataViewChanged = pageIndex !== prev.pageIndex || pageSize !== prev.pageSize;
+
+    if (dataViewChanged) {
+      // DataView changed → sync to URL
+      prevPaginationRef.current = { pageIndex, pageSize };
+      pendingPageRef.current = pageIndex + 1;
+      updateUrlParams({ page: pageIndex + 1, pageSize });
+    } else {
+      // Clear pending if URL has caught up
+      if (pendingPageRef.current === urlPage) {
+        pendingPageRef.current = undefined;
+      }
+
+      // DataView didn't change → check if URL changed (e.g., browser back/forward)
+      // Skip if we have a pending update that hasn't been reflected in URL yet
+      if (pendingPageRef.current !== undefined) {
+        return;
+      }
+
+      const targetPageIndex = urlPage - 1;
+      const urlDiffersFromDataView = targetPageIndex !== pageIndex || urlPageSize !== pageSize;
+
+      if (urlDiffersFromDataView) {
+        // URL changed externally → sync to DataView
+        prevPaginationRef.current = { pageIndex: targetPageIndex, pageSize: urlPageSize };
+        dataViewState.pagination.set({ pageIndex: targetPageIndex, pageSize: urlPageSize });
+      }
+    }
+  }, [dataViewState.pagination, urlPage, urlPageSize, updateUrlParams]);
+
+  // Bidirectional sorting sync: DataView ↔ URL
+  // Same priority logic as pagination.
+  // Also resets pagination to page 1 when sorting changes (common UX pattern).
+  useEffect(() => {
+    const sortingState = dataViewState.sorting.state;
+    const currentSort = sortingState[0];
+    const prevSort = prevSortingRef.current[0];
+
+    const dataViewSortChanged =
+      currentSort?.id !== prevSort?.id || currentSort?.desc !== prevSort?.desc;
+
+    if (dataViewSortChanged) {
+      // DataView sorting changed → sync to URL
+      prevSortingRef.current = [...sortingState];
+
+      const newSortString = currentSort
+        ? currentSort.desc
+          ? `-${currentSort.id}`
+          : currentSort.id
+        : null;
+      pendingSortRef.current = newSortString;
+
+      // Reset pagination to page 1 when sorting changes (common UX pattern)
+      // Update both sort AND page in a single URL update to avoid race conditions
+      const { pageIndex, pageSize } = dataViewState.pagination.state;
+      const needsPageReset = pageIndex !== 0;
+
+      if (needsPageReset) {
+        prevPaginationRef.current = { pageIndex: 0, pageSize };
+        pendingPageRef.current = 1;
+        updateUrlParams({ sort: newSortString, page: 1 });
+        dataViewState.pagination.set((prev: { pageIndex: number; pageSize: number }) => ({
+          ...prev,
+          pageIndex: 0,
+        }));
+      } else {
+        updateUrlParams({ sort: newSortString });
+      }
+    } else {
+      // Clear pending if URL has caught up
+      const currentUrlSortString = urlSorting
+        ? urlSorting.desc
+          ? `-${urlSorting.id}`
+          : urlSorting.id
+        : null;
+      if (pendingSortRef.current === currentUrlSortString) {
+        pendingSortRef.current = undefined;
+      }
+
+      // DataView didn't change → check if URL sorting changed
+      // Skip if we have a pending update that hasn't been reflected in URL yet
+      if (pendingSortRef.current !== undefined) {
+        return;
+      }
+
+      const urlSortId = urlSorting?.id;
+      const urlSortDesc = urlSorting?.desc ?? false;
+      const dataViewSortId = currentSort?.id;
+      const dataViewSortDesc = currentSort?.desc ?? false;
+
+      const urlDiffersFromDataView =
+        urlSortId !== dataViewSortId || urlSortDesc !== dataViewSortDesc;
+
+      if (urlDiffersFromDataView) {
+        // URL sorting changed externally → sync to DataView
+        if (urlSorting) {
+          prevSortingRef.current = [urlSorting];
+          dataViewState.sorting.set([urlSorting]);
+        } else {
+          prevSortingRef.current = [];
+          dataViewState.sorting.set([]);
+        }
+      }
+    }
+  }, [dataViewState.sorting, dataViewState.pagination, urlSorting, updateUrlParams]);
+
+  // Debounced search bar and column filters for API queries
+  const [debouncedSearchBar] = useDebounce(dataViewState.searchBar.state, 300);
+  const [debouncedColumnFilters] = useDebounce(dataViewState.columnFiltering.state, 300);
+
+  // Track previous debounced values to detect changes for pagination reset
+  const prevDebouncedSearchRef = useRef(debouncedSearchBar);
+  const prevDebouncedFiltersRef = useRef(debouncedColumnFilters);
+
+  // Auto-reset pagination when search or filters change
+  useEffect(() => {
+    const searchChanged = prevDebouncedSearchRef.current !== debouncedSearchBar;
+    const filtersChanged = prevDebouncedFiltersRef.current !== debouncedColumnFilters;
+
+    prevDebouncedSearchRef.current = debouncedSearchBar;
+    prevDebouncedFiltersRef.current = debouncedColumnFilters;
+
+    if (searchChanged || filtersChanged) {
+      resetPagination();
+    }
+  }, [debouncedSearchBar, debouncedColumnFilters, resetPagination]);
+
+  // Bidirectional search bar sync: DataView ↔ URL
+  const prevSearchBarRef = useRef(dataViewState.searchBar.state);
+  const pendingSearchRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const currentSearch = dataViewState.searchBar.state;
+    const dataViewChanged = currentSearch !== prevSearchBarRef.current;
+
+    if (dataViewChanged) {
+      prevSearchBarRef.current = currentSearch;
+      pendingSearchRef.current = currentSearch;
+      updateUrlParams({ search: currentSearch });
+    } else {
+      if (pendingSearchRef.current === urlSearch) {
+        pendingSearchRef.current = undefined;
+      }
+      if (pendingSearchRef.current !== undefined) return;
+
+      if (urlSearch !== currentSearch) {
+        prevSearchBarRef.current = urlSearch;
+        dataViewState.searchBar.set(urlSearch);
+      }
+    }
+  }, [dataViewState.searchBar, urlSearch, updateUrlParams]);
+
+  // Bidirectional column filters sync: DataView ↔ URL
+  const prevColumnFiltersRef = useRef(dataViewState.columnFiltering.state);
+  const pendingFiltersRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const currentFilters = dataViewState.columnFiltering.state;
+    const dataViewChanged = currentFilters !== prevColumnFiltersRef.current;
+
+    if (dataViewChanged) {
+      prevColumnFiltersRef.current = currentFilters;
+      const filtersJson = currentFilters.length > 0 ? JSON.stringify(currentFilters) : null;
+      pendingFiltersRef.current = filtersJson ?? undefined;
+      updateUrlParams({ filters: filtersJson });
+    } else {
+      const currentUrlFiltersJson = urlFiltersParam
+        ? decodeURIComponent(urlFiltersParam)
+        : undefined;
+      if (pendingFiltersRef.current === currentUrlFiltersJson) {
+        pendingFiltersRef.current = undefined;
+      }
+      if (pendingFiltersRef.current !== undefined) return;
+
+      const urlDiffersFromDataView =
+        JSON.stringify(currentFilters) !== JSON.stringify(urlColumnFilters);
+
+      if (urlDiffersFromDataView) {
+        prevColumnFiltersRef.current = urlColumnFilters;
+        dataViewState.columnFiltering.set(urlColumnFilters);
+      }
+    }
+  }, [dataViewState.columnFiltering, urlColumnFilters, urlFiltersParam, updateUrlParams]);
+
+  // Convention-mapped API filter object
+  const apiFilter = useMemo<ApiFilter>(() => {
+    const result: ApiFilter = {};
+
+    if (debouncedSearchBar) {
+      result.searchText = debouncedSearchBar;
+    }
+
+    if (debouncedColumnFilters.length > 0) {
+      result.filter = Object.fromEntries(
+        debouncedColumnFilters
+          .filter((f) => {
+            if (f.value === undefined || f.value === '') return false;
+            if (
+              typeof f.value === 'object' &&
+              f.value !== null &&
+              Object.keys(f.value).length === 0
+            )
+              return false;
+            return true;
+          })
+          .map((f) => [f.id, f.value])
+      );
+    }
+
+    return result;
+  }, [debouncedSearchBar, debouncedColumnFilters]);
+
+  // Reset all filters and search
+  const resetFilters = useCallback(() => {
+    dataViewState.searchBar.set('');
+    dataViewState.columnFiltering.set([]);
+    resetPagination();
+  }, [dataViewState.searchBar, dataViewState.columnFiltering, resetPagination]);
+
+  return {
+    ...dataViewState,
+    resetPagination,
+    debouncedSearchBar,
+    debouncedColumnFilters,
+    apiFilter,
+    resetFilters,
+  };
+};

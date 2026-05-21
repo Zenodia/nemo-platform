@@ -1,0 +1,452 @@
+# Platform and architecture detection
+UNAME_S := $(shell uname -s)
+ARCH := $(shell uname -m)
+PLATFORM := $(shell echo $(UNAME_S) | tr '[:upper:]' '[:lower:]')
+PROFILE ?= platform
+NMP_CONFIG_FILE_PATH ?= packages/nmp_platform/config/local.yaml
+
+# Normalize architecture names and set arch-specific defaults.
+# EXTRA controls the uv install extra for unit and integration tests (cpu vs cu128). Arch blocks use ?= so
+# that CLI (make EXTRA=cpu) and env (EXTRA=cpu make ...) overrides are respected.
+ifeq ($(ARCH),x86_64)
+	ARCH := amd64
+	EXTRA ?= cu128
+	export BUILD_ARCH ?= linux/amd64
+endif
+ifeq ($(ARCH),aarch64)
+	ARCH := arm64
+endif
+ifeq ($(ARCH),arm64)
+	export BUILD_ARCH ?= linux/arm64
+endif
+# Fallback default for non-amd64 architectures (or explicit user override)
+EXTRA ?= cpu
+PYTORCH_DEPS ?= cpu
+PYTEST_EXTRA ?=
+PYTHON_VERSION ?= 3.11
+BOOTSTRAP_CREATE_VENV ?= 1
+
+# Display platform info
+$(info local system architecture: $(PLATFORM)/$(ARCH))
+
+# taken from https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
+.PHONY: help
+help:
+	@echo "Makefile commands:"
+	@grep -E '^[a-zA-Z_-][a-zA-Z0-9_/-]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: refresh-openapi
+refresh-openapi:  ## Generate the OpenAPI specification
+	uv run --frozen script/generate-openapi-spec.sh
+
+.PHONY: stainless
+stainless: ## Run Stainless to generate the OpenAPI spec and sync it with the SDK
+	SDK_RELEASE_TIER=ga ./sdk/stainless.sh sync
+
+.PHONY: update-web-sdk
+update-web-sdk: ## Regenerate the TypeScript web SDK (web/packages/sdk) from the OpenAPI spec via Orval
+	cd web && pnpm gen
+
+.PHONY: update-sdk
+update-sdk: build-policy refresh-openapi stainless update-web-sdk update-cli ## Update the SDK by regenerating the OpenAPI spec and syncing it with Stainless
+
+.PHONY: vendor-nemo-platform-ext
+vendor-nemo-platform-ext:
+	$(MAKE) -C packages/nemo_platform_ext vendor
+
+.PHONY: generate-cli-commands
+generate-cli-commands: ## Run generation of the CLI commands
+	uv run --frozen nemo-platform-sdk-tools generate-cli $(ARGS)
+
+	# auto-generated code can be cleaned up more aggressively (in this case, we want to remove unused imports in __init__.py files)
+	uv run --frozen ruff check --fix --preview --unsafe-fixes --extend-select F401,E402 packages/nemo_platform_ext/src/nemo_platform_ext/cli/commands/api/
+	# ARG001 catches unused function arguments which indicates variable shadowing bugs (no auto-fix)
+	uv run --frozen ruff check --select ARG001 packages/nemo_platform_ext/src/nemo_platform_ext/cli/commands/api/
+	uv run --frozen ruff check --fix --unsafe-fixes packages/nemo_platform_ext/src/nemo_platform_ext/cli/commands/api/
+	uv run --frozen ruff format packages/nemo_platform_ext
+
+.PHONY: generate-cli-reference-docs
+generate-cli-reference-docs: ## Generate the CLI reference documentation
+	uv run --frozen packages/nemo_platform_ext/scripts/docs_generator.py reference > docs/cli/reference.md
+	uv run --frozen packages/nemo_platform_ext/scripts/docs_generator.py summary > docs/_snippets/cli-summary.md
+
+.PHONY: generate-config-reference-docs
+generate-config-reference-docs: ## Generate the platform config reference documentation
+	uv run --frozen generate-config-docs
+
+.PHONY: update-cli
+update-cli: generate-cli-commands vendor-nemo-platform-ext generate-cli-reference-docs
+
+.PHONY: clean-python
+clean-python: ## remove python virtual environment
+	rm -rf .venv/
+
+.PHONY: verify-python-version
+verify-python-version: ## Verify Python version and install if necessary
+	@echo "~~~~~~"
+	@echo "verifying python version"
+	uv python find $(PYTHON_VERSION) || uv python install $(PYTHON_VERSION)
+
+.venv/bin/python:
+	@echo "~~~"
+	@if [ "$(BOOTSTRAP_CREATE_VENV)" = "0" ]; then \
+		echo "BOOTSTRAP_CREATE_VENV=0 but .venv/bin/python is missing"; \
+		echo "Create .venv manually, or run make again without BOOTSTRAP_CREATE_VENV=0."; \
+		exit 1; \
+	fi
+	@echo "verifying python version"
+	uv python find $(PYTHON_VERSION) || uv python install $(PYTHON_VERSION)
+	@echo "setting up a venv with uv"
+	uv venv --seed --allow-existing
+
+.venv: .venv/bin/python ## Create a Python virtual environment
+
+# Optional escape hatch for local plugin packages that cannot participate in the
+# root uv workspace/lock. Leave empty for the normal monorepo bootstrap path.
+BOOTSTRAP_LOCAL_PLUGIN_DIRS ?=
+
+.PHONY: bootstrap-python
+bootstrap-python: ## Bootstrap Python dependencies with optional Pytorch cuda/cpu version. set PYTORCH_DEPS to 'cpu|cu128'.
+	@echo "~~~~~~"
+	@echo "installing python dependencies ${PYTORCH_DEPS} version of torch"
+	@echo "cpu/cuda version is set with the env variable 'PYTORCH_DEPS=cpu|cu128'"
+	@echo "PYTORCH_DEPS=cu128 make bootstrap-python"
+	uv sync --frozen --all-packages --extra ${PYTORCH_DEPS}
+	@if [ -n "$(strip $(BOOTSTRAP_LOCAL_PLUGIN_DIRS))" ]; then \
+		$(MAKE) bootstrap-plugins BOOTSTRAP_LOCAL_PLUGIN_DIRS="$(BOOTSTRAP_LOCAL_PLUGIN_DIRS)"; \
+	fi
+
+.PHONY: verify-node-version
+verify-node-version: ## Verify pnpm and Node.js satisfy Studio's package engine
+	@echo "~~~~~~"
+	@echo "verifying Node.js version from web/package.json engines"
+	@script/verify-node-version.sh
+
+.PHONY: bootstrap-studio
+bootstrap-studio: verify-node-version ## Install web dependencies and build Studio assets for FastAPI
+	@echo "~~~~~~"
+	@echo "installing Studio web dependencies and building FastAPI assets"
+	cd web && CI=true pnpm install --frozen-lockfile
+	cd web && pnpm --filter nemo-studio-ui build:fastapi
+
+.PHONY: bootstrap-plugins
+bootstrap-plugins: .venv ## Install editable plugin packages not covered by the root uv workspace
+	@echo "~~~~~~"
+	@echo "installing editable local plugin packages: $(BOOTSTRAP_LOCAL_PLUGIN_DIRS)"
+	@editable_args=""; \
+	for plugin in $(BOOTSTRAP_LOCAL_PLUGIN_DIRS); do \
+		if [ ! -f "$$plugin/pyproject.toml" ]; then \
+			echo "configured local plugin $$plugin is missing pyproject.toml"; \
+			exit 1; \
+		fi; \
+		editable_args="$$editable_args -e $$plugin"; \
+	done; \
+	if [ -n "$$editable_args" ]; then \
+		. .venv/bin/activate && uv pip install $$editable_args; \
+	else \
+		echo "no local plugin packages configured, skipping"; \
+	fi
+
+.PHONY: bootstrap
+bootstrap: bootstrap-python ## Bootstrap the local dev environment, including Studio assets
+	@if ! $(MAKE) bootstrap-studio; then \
+		echo ""; \
+		echo "warning: optional Studio asset bootstrap did not complete."; \
+		echo "Studio will be unavailable at http://localhost:8080/studio/ until assets are built."; \
+		echo "Install Node.js matching web/package.json with pnpm, then rerun:"; \
+		echo "  pnpm env use --global 22.18.0"; \
+		echo "  make bootstrap-studio"; \
+	fi
+	@echo "bootstrap completed"
+
+.PHONY: run
+run: build-policy ## Run the NeMo Platform locally with Docker job backend
+	NMP_CONFIG_FILE_PATH=${NMP_CONFIG_FILE_PATH} uv run nemo services run
+
+.PHONY: clean
+clean: clean-python ## Clean the NeMo Platform DB, files, and Python virtual environment
+	rm -f /tmp/nmp-platform.db*
+	rm -rf /tmp/nmp-files
+
+.PHONY: update-licenses
+update-licenses: ## Update the third_party/license.txt file with the latest licenses
+	uv sync --inexact
+	uv run --frozen nemo-platform-sdk-tools license generate
+
+.PHONY: check-licenses
+check-licenses: ## Check that license files are up to date
+	LICENSE_DIR="$$(pwd)/third_party" && \
+	export LICENSE_NAME="licenses_ci.jsonl" && \
+	export PATH="$$HOME/.local/bin:$$PATH" && \
+	$(MAKE) update-licenses && \
+	diff third_party/licenses.jsonl "$${LICENSE_DIR}/$${LICENSE_NAME}" && \
+	uv run --frozen nemo-platform-sdk-tools license find-missing
+
+CMD_COPYRIGHT_HEADER_FIXER := uv run script/copyright_fixer.py .
+.PHONY: update-copyright-headers
+update-copyright-headers:
+	$(CMD_COPYRIGHT_HEADER_FIXER)
+
+.PHONY: check-copyright-headers
+check-copyright-headers:
+	$(CMD_COPYRIGHT_HEADER_FIXER) --check
+
+.PHONY: lint
+lint: ## Run all linters (licenses, openapi, config docs, python style/types/sdk, vendored SDK, CLI, auth config)
+	bash tools/lint/lint-all.sh
+
+.PHONY: lint-fix
+lint-fix: ## Auto-fix lint issues in dependency order (openapi → stainless → style → cli → vendor → licenses → config-docs)
+	bash tools/lint/lint-fix.sh
+
+.PHONY: vendor
+vendor: ## Vendor packages into the SDK and generate wrapper metadata
+	uv run --no-sync nemo-platform-sdk-tools vendor all-from-configs \
+		nemo_platform_ext models filesets safe_synthesizer_sdk \
+		nemo_evaluator_sdk
+	uv run --no-sync nemo-platform-sdk-tools post-generation update-license-headers
+
+# ============================================================================
+# Python Testing Targets
+# ============================================================================
+
+.PHONY: test
+test: test-unit  ## Run all Python unit tests (fast tests without infrastructure dependencies)
+
+
+# In CI (e.g. GitLab sets CI=true): quiet progress for readable logs. Locally: verbose.
+PYTEST_VERBOSITY := $(if $(filter true,$(CI)),-q,-v)
+PYTEST_WORKERS ?= auto
+PYTEST_MAX_WORKERS ?= 16
+PYTEST_CMD := env PYTHONWARNINGS="ignore::UserWarning:pytest_only.version" uv run --frozen \
+	--extra $(EXTRA) \
+	pytest \
+	-n $(PYTEST_WORKERS) --maxprocesses=$(PYTEST_MAX_WORKERS) --dist loadscope --timeout=120 $(PYTEST_VERBOSITY) $(PYTEST_EXTRA)
+
+PYTEST_CI_OPTS := --cov=src --cov=packages \
+	--junitxml=report.xml \
+	--cov-report json:coverage.json \
+	--cov-report xml:coverage.xml \
+	--durations=25
+
+# Global wall-clock timeout for CI test runs to prevent infinite hangs when
+# a pytest-xdist worker crashes (e.g. SIGABRT from wasmtime) and doesn't exit.
+# timeout sends SIGTERM after PYTEST_CI_TIMEOUT seconds, then SIGKILL after 60s.
+PYTEST_CI_TIMEOUT ?= 1800
+PYTEST_CI_CMD := timeout --kill-after=60s $(PYTEST_CI_TIMEOUT)s $(PYTEST_CMD)
+
+.PHONY: test-unit
+test-unit: ## Run Python unit tests across all packages and services
+	@echo "Running Python unit tests across all packages and services..."
+	$(PYTEST_CMD) -m unit
+
+.PHONY: test-unit-ci
+test-unit-ci: ## Run Python unit tests with coverage for CI
+	@echo "Running Python unit tests with coverage..."
+	$(PYTEST_CI_CMD) $(PYTEST_CI_OPTS) -m unit
+
+.PHONY: test-integration
+test-integration: ## Run Python integration tests (tests service interfaces and interactions)
+	@echo "Running Python integration tests..."
+	$(PYTEST_CMD) -m integration
+
+.PHONY: test-integration-ci
+test-integration-ci: ## Run Python integration tests (tests service interfaces and interactions)
+	@echo "Running Python integration tests..."
+	$(PYTEST_CI_CMD) $(PYTEST_CI_OPTS) -m integration
+
+.PHONY: test-gpu-integration
+test-gpu-integration: ## Run Python gpu integration tests (tests service interfaces and interactions)
+	# We run tests serially, because if any use the GPU they cannot share it
+	@echo "Using extra: ${EXTRA}"
+	@echo "Running Python gpu integration tests..."
+	$(PYTEST_CMD) -m gpu_integration
+
+
+.PHONY: test-gpu-integration-ci
+test-gpu-integration-ci: ## Run Python integration gpu tests (tests service interfaces and interactions)
+	# We run tests serially, because if any use the GPU they cannot share it
+	@echo "Using extra: ${EXTRA}"
+	@echo "Running Python gpu integration tests..."
+	$(PYTEST_CI_CMD) $(PYTEST_CI_OPTS) -m gpu_integration
+
+.PHONY: test-all-script
+test-all-script: ## Run all unit tests using the helper script (with summary)
+	@echo "Running all unit tests with summary..."
+	uv run --frozen python tools/run_all_tests.py
+
+# NOTE: disabled this in favour of the other test-e2e target (see below)
+.PHONY: test-e2e
+# test-e2e: ## Run Python end-to-end tests (customer workflows and blueprints)
+# 	@echo "Running Python end-to-end tests..."
+# 	uv run --frozen pytest -v -m e2e
+
+.PHONY: test-regression
+test-regression: ## Run Python regression tests (functional microservice baseline tests)
+	@echo "Running Python regression tests..."
+	uv run --frozen pytest -v -m regression
+
+.PHONY: test-all
+test-all: ## Run all Python tests (unit, integration, e2e, regression)
+	@echo "Running all Python tests..."
+	uv run --frozen pytest -v -m "not canary and not skip_in_ci"
+
+.PHONY: test-canary
+test-canary: ## Run canary tests against deployed environments
+	@echo "Running canary tests..."
+	uv run --frozen pytest -v -m canary
+
+.PHONY: test-coverage
+test-coverage: ## Run tests with coverage reporting
+	@echo "Running tests with coverage..."
+	uv run --frozen pytest -v --cov --cov-report=html --cov-report=term --cov-report=xml
+	@echo "Coverage report generated in htmlcov/index.html"
+
+.PHONY: test-coverage-report
+test-coverage-report: ## Generate and display coverage report (run after test-coverage)
+	@echo "Opening coverage report..."
+	@command -v open >/dev/null 2>&1 && open htmlcov/index.html || \
+	 command -v xdg-open >/dev/null 2>&1 && xdg-open htmlcov/index.html || \
+	 echo "Coverage report is at htmlcov/index.html"
+
+.PHONY: test-package
+test-package: ## Run tests for a specific package (usage: make test-package PACKAGE=nmp_common)
+ifndef PACKAGE
+	$(error PACKAGE is not set. Usage: make test-package PACKAGE=<package_name>)
+endif
+	@echo "Running tests for package: $(PACKAGE)..."
+	uv run --frozen pytest -v packages/$(PACKAGE)/tests/
+
+.PHONY: test-service
+test-service: ## Run tests for a specific service (usage: make test-service SERVICE=evaluator)
+ifndef SERVICE
+	$(error SERVICE is not set. Usage: make test-service SERVICE=<service_name>)
+endif
+	@echo "Running tests for service: $(SERVICE)..."
+	uv run --frozen pytest -v services/$(SERVICE)/tests/
+
+
+.PHONY: test-fast
+test-fast: ## Run fast tests only (excludes slow, e2e, integration marked tests)
+	@echo "Running fast tests..."
+	uv run --frozen pytest -v -m "unit and not slow"
+
+.PHONY: test-watch
+test-watch: ## Run tests in watch mode (requires pytest-watch)
+	@echo "Running tests in watch mode..."
+	uv run --frozen ptw -- -v
+
+.PHONY: test-debug
+test-debug: ## Run tests with debugging output (verbose, no capture, show locals)
+	@echo "Running tests in debug mode..."
+	uv run --frozen pytest -vvv -s --tb=long --showlocals
+
+.PHONY: test-failed
+test-failed: ## Re-run only the tests that failed in the last run
+	@echo "Re-running failed tests..."
+	uv run --frozen pytest -v --lf
+
+.PHONY: test-clean
+test-clean: ## Clean test artifacts (coverage, cache, etc.)
+	@echo "Cleaning test artifacts..."
+	rm -rf .pytest_cache
+	rm -rf htmlcov
+	rm -rf .coverage
+	rm -rf coverage.xml
+	rm -rf .tox
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@echo "Test artifacts cleaned"
+
+.PHONY: test-list
+test-list: ## List all available tests without running them
+	@echo "Listing all tests..."
+	uv run --frozen pytest --collect-only -q
+
+.PHONY: test-markers
+test-markers: ## List all available pytest markers
+	@echo "Available pytest markers:"
+	uv run --frozen pytest --markers
+
+.PHONY: test-policy
+test-policy: ## Run OPA policy tests for auth service
+	@if ! command -v opa >/dev/null 2>&1; then \
+		echo ""; \
+		echo "ERROR: OPA (Open Policy Agent) is not installed."; \
+		echo ""; \
+		echo "For more info: https://www.openpolicyagent.org/docs/latest/#running-opa"; \
+		exit 1; \
+	fi
+	@echo "Running OPA policy tests..."
+	opa test services/core/auth/src/nmp/core/auth/app/policies services/core/auth/src/nmp/core/auth/app/policy_tests services/core/auth/src/nmp/core/auth/assets/static-authz.yaml -v
+
+# Policy WASM bundle paths
+ASSETS_DIR := services/core/auth/src/nmp/core/auth/assets
+
+.PHONY: build-policy
+build-policy: ## Build OPA policies into WASM bundle
+	./script/build_policy_wasm.sh
+
+.PHONY: check-policy
+check-policy: ## Verify WASM bundle is up-to-date with policies
+	@echo "Checking if policy.wasm is up-to-date..."
+	@cp $(ASSETS_DIR)/policy.wasm $(ASSETS_DIR)/policy.wasm.bak 2>/dev/null || true
+	@$(MAKE) build-policy >/dev/null 2>&1
+	@if ! cmp -s $(ASSETS_DIR)/policy.wasm $(ASSETS_DIR)/policy.wasm.bak 2>/dev/null; then \
+		mv $(ASSETS_DIR)/policy.wasm.bak $(ASSETS_DIR)/policy.wasm 2>/dev/null || true; \
+		echo "ERROR: policy.wasm is out of date. Run 'make build-policy' and commit the result."; \
+		exit 1; \
+	fi
+	@rm -f $(ASSETS_DIR)/policy.wasm.bak
+	@echo "policy.wasm is up-to-date"
+
+
+.PHONY: build-jobs-launcher
+build-jobs-launcher:
+	@echo "Building jobs launcher binary..."
+	cd services/core/jobs/jobs-launcher/ && ./build-manual.sh
+
+.PHONY: test-jobs-launcher
+test-jobs-launcher:
+	@echo "Testing jobs launcher binary..."
+	cd services/core/jobs/jobs-launcher/ && go test ./... -v
+
+.PHONY: test-e2e-docker
+test-e2e-docker: ## Run e2e tests using docker
+	@echo "Running e2e tests with docker..."
+	uv run --frozen pytest e2e --docker -v --junitxml=report.xml $(PYTEST_EXTRA)
+
+.PHONY: test-e2e-docker-auth
+test-e2e-docker-auth: ## Run e2e tests using docker and auth
+	@echo "Running e2e tests with docker and auth..."
+	uv run --frozen pytest e2e --docker --feature auth -v --junitxml=report.xml
+
+.PHONY: test-e2e-docker-gpu
+test-e2e-docker-gpu: ## Run GPU e2e tests using docker (requires GPU host and GPU config)
+	@echo "Running GPU e2e tests with docker..."
+	uv run --frozen pytest e2e --docker --feature gpu -v --junitxml=report.xml
+
+.PHONY: test-e2e-kubernetes
+test-e2e-kubernetes: ## Run e2e tests against Kubernetes (set NMP_E2E_CLUSTER_URL)
+	@echo "Running e2e tests with Kubernetes..."
+	uv run --frozen pytest e2e --kubernetes -v -n 2 --junitxml=report-kubernetes.xml
+
+.PHONY: test-e2e-kubernetes-auth
+test-e2e-kubernetes-auth: ## Run e2e tests against Kubernetes with auth enabled (set NMP_E2E_CLUSTER_URL)
+	@echo "Running e2e tests with Kubernetes and feature auth enabled..."
+	uv run --frozen pytest e2e --kubernetes --feature auth -n 2 -v --junitxml=report-kubernetes-auth.xml
+
+.PHONY: test-e2e-kubernetes-kai
+test-e2e-kubernetes-kai: ## Run KAI Scheduler e2e tests against Kubernetes (set NMP_E2E_CLUSTER_URL)
+	@echo "Running e2e tests with Kubernetes and feature kai-scheduler..."
+	uv run --frozen pytest e2e --kubernetes --feature kai-scheduler -v --junitxml=report-kubernetes-kai.xml
+
+.PHONY: test-e2e-kubernetes-gpu
+test-e2e-kubernetes-gpu: ## Run GPU e2e tests against Kubernetes (requires GPU nodes; set NMP_E2E_CLUSTER_URL)
+	@echo "Running GPU e2e tests with Kubernetes with feature gpu enabled..."
+	uv run --frozen pytest e2e --kubernetes --feature gpu -v --junitxml=report-kubernetes-gpu.xml
+
+.PHONY: test-e2e-kubernetes-gpu-customizer
+test-e2e-kubernetes-gpu-customizer: ## Run GPU customizer e2e tests against Kubernetes (requires GPU nodes; set NMP_E2E_CLUSTER_URL)
+	@echo "Running GPU customizer e2e tests with Kubernetes..."
+	uv run --frozen pytest e2e/test_customizer.py --kubernetes --feature gpu --feature customizer --log-cli-level=INFO -v --junitxml=report-kubernetes-gpu-customizer.xml

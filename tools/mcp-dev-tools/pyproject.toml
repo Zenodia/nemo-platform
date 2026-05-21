@@ -1,0 +1,42 @@
+[project]
+name = "nmp-dev-mcp"
+version = "0.1.0"
+description = "MCP server for NeMo Platform development tools"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries"
+]
+
+dependencies = [
+    "fastmcp>=3.2.0",  # GHSA-vv7q-7jx5-f767 (Critical) + GHSA-rww4-4w9c-7733 (High)
+]
+
+[project.scripts]
+nmp-dev-mcp = "nmp_dev_mcp:main"
+
+[dependency-groups]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+extend-exclude = ["__pycache__", ".venv"]

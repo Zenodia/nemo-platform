@@ -1,0 +1,6 @@
+# Default Approval rule
+* @NVIDIA-NeMo/nmp_team @NVIDIA-NeMo/nmp_maintainers
+
+# Restrictive initial .github approval
+/.github/ @NVIDIA-NeMo/nmp_devops
+/release/ @NVIDIA-NeMo/nmp_devops

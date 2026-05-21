@@ -1,0 +1,6 @@
+# Generated files - these should only exist in _build/nemo-nb/
+*.ipynb
+*.sphinx.md
+
+# Build directory
+_build/

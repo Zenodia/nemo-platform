@@ -1,0 +1,48 @@
+// Example HTTP calls for the /v2/entities API:
+
+@base_url = http://localhost:8080
+
+### Create an entity
+POST {{base_url}}/v2/entities
+Content-Type: application/json
+
+{
+  "workspace": "ml-team",
+  "entity_type": "my-entity-type",
+  "name": "test-3",
+  "data": {
+    "key": "value3",
+    "foo": "bar",
+    "nested": {
+      "key": "value3"
+    }
+  }
+}
+
+### List all entities in a workspace
+GET {{base_url}}/v2/entities
+?workspace=ml-team
+&search={"data.nested.key": {"$in": ["value2", "value3"]}}
+
+### List all entities in a workspace with sorting
+GET {{base_url}}/v2/entities?workspace=ml-team&sort=-created_at
+
+### List all entities of a specific type for a workspace
+GET {{base_url}}/v2/entities?workspace=ml-team&entity_type=my-entity-type
+
+### Get a specific entity by name
+GET {{base_url}}/v2/entities/by-name?workspace=ml-team&entity_type=my-entity-type&name=my-config-2
+
+### Update an entity
+PUT {{base_url}}/v2/entities/1234567890
+Content-Type: application/json
+
+{
+  "data": {
+    "target_id": "llama-2-7b",
+    "training_options": {"learning_rate": 0.02}
+  }
+}
+
+### Delete an entity
+DELETE {{base_url}}/v2/entities/1234567890

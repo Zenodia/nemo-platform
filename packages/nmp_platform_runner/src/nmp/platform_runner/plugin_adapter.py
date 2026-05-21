@@ -1,0 +1,183 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Adapters that wrap Nemo plugin types in the platform's internal contracts.
+
+:class:`NemoServiceAdapter`
+    Wraps a :class:`~nemo_platform_plugin.service.NemoService` as a platform-native
+    :class:`~nmp.common.service.Service`.
+
+:class:`NemoControllerAdapter`
+    Wraps a :class:`~nemo_platform_plugin.controller.NemoController` (async) as a
+    platform-native :class:`~nmp.common.controller.Controller` (sync /
+    thread-based).  Use :func:`make_controller_run_func` to create the
+    ``run(stop_signal)`` callable expected by :func:`~nmp.platform_runner.server.create_app`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import threading
+from collections.abc import Callable
+
+from fastapi import FastAPI
+from nemo_platform_plugin.controller import NemoController
+from nemo_platform_plugin.service import NemoService
+from nmp.common.controller import Controller, Loop, TimedLoopWaiter, TrackLastExecutionTime
+from nmp.common.service import RouterConfig, Service
+
+logger = logging.getLogger(__name__)
+
+_SHUTDOWN_TIMEOUT_SECONDS: float = 10.0
+
+
+class NemoServiceAdapter(Service):
+    """Wrap a plugin service as a platform-native service."""
+
+    def __init__(self, plugin: NemoService) -> None:
+        super().__init__(name=plugin.name, module_name=type(plugin).__module__)
+        self._plugin = plugin
+        self._dependencies = list(getattr(type(plugin), "dependencies", []))
+
+    def get_routers(self) -> list[RouterConfig]:
+        return [
+            RouterConfig(
+                router=spec.router,
+                tag=spec.tag or self._plugin.name,
+                description=spec.description,
+                prefix=spec.prefix,
+            )
+            for spec in self._plugin.get_routers()
+        ]
+
+    def create_app(self) -> FastAPI:
+        app = super().create_app()
+        for exc_type, handler in self._plugin.get_exception_handlers().items():
+            app.add_exception_handler(exc_type, handler)
+        return app
+
+    async def on_startup(self) -> None:
+        logger.debug("Starting plugin service %s", self._plugin.name)
+        await super().on_startup()
+        try:
+            await self._plugin.on_startup()
+        except Exception:
+            await super().on_shutdown()
+            raise
+
+    async def on_shutdown(self) -> None:
+        logger.debug("Shutting down plugin service %s", self._plugin.name)
+        await self._plugin.on_shutdown()
+        await super().on_shutdown()
+
+
+class NemoControllerAdapter(Controller):
+    """Wrap a NemoController (async) as a platform-native Controller (sync/thread).
+
+    Creates a dedicated asyncio event loop for the controller so that async
+    reconcile cycles can run from within the platform's thread-based
+    :class:`~nmp.common.controller.Loop`.
+
+    The event loop is owned by this adapter and closed in :meth:`shutdown`,
+    which the :class:`~nmp.common.controller.Loop` calls as its
+    ``shutdown_func`` after the reconcile loop exits.
+    """
+
+    def __init__(self, plugin: NemoController) -> None:
+        self._plugin = plugin
+        self._loop = asyncio.new_event_loop()
+
+    def step(self) -> None:
+        """Run one reconcile cycle synchronously on the adapter's event loop."""
+        self._loop.run_until_complete(self._plugin.reconcile())
+
+    @property
+    def is_healthy(self) -> bool:
+        return self._plugin.is_healthy
+
+    def shutdown(self) -> None:
+        """Call ``on_shutdown()`` on the plugin, then close the event loop.
+
+        Enforces a ``_SHUTDOWN_TIMEOUT_SECONDS`` timeout so a misbehaving
+        ``on_shutdown()`` implementation cannot hang the platform shutdown.
+        """
+        if self._loop.is_closed():
+            return
+        try:
+            self._loop.run_until_complete(
+                asyncio.wait_for(
+                    self._plugin.on_shutdown(),
+                    timeout=_SHUTDOWN_TIMEOUT_SECONDS,
+                )
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Plugin controller %r on_shutdown() did not complete within %ss — proceeding.",
+                self._plugin.name,
+                _SHUTDOWN_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            logger.exception(
+                "Error in plugin controller %r on_shutdown().",
+                self._plugin.name,
+            )
+        finally:
+            self._loop.close()
+
+
+def make_controller_run_func(controller_cls: type[NemoController]) -> Callable[[threading.Event], None]:
+    """Return a ``run(stop_signal)`` function that drives a :class:`NemoController`.
+
+    The returned callable matches the signature expected by
+    :func:`~nmp.platform_runner.server.create_app` (same as core controller
+    run functions registered in ``AVAILABLE_CONTROLLERS``).
+
+    Lifecycle inside the returned function:
+
+    1. Instantiate *controller_cls*.
+    2. Call ``on_startup()`` on the adapter's event loop.
+    3. Wrap in :class:`~nmp.common.controller.Loop` with a
+       :class:`~nmp.common.controller.TimedLoopWaiter` honouring *stop_signal*.
+    4. Start the loop thread and join it (blocking until stop).
+    5. The loop's ``shutdown_func`` calls :meth:`NemoControllerAdapter.shutdown`
+       which runs ``on_shutdown()`` and closes the event loop.
+
+    Args:
+        controller_cls: The :class:`NemoController` subclass to run.
+
+    Returns:
+        A callable ``run(stop_signal: threading.Event) -> None``.
+    """
+
+    def run(stop_signal: threading.Event) -> None:
+        controller = controller_cls()
+        adapter = NemoControllerAdapter(controller)
+
+        # Run on_startup before the reconcile loop begins.
+        try:
+            adapter._loop.run_until_complete(controller.on_startup())
+        except Exception:
+            logger.exception(
+                "Plugin controller %r on_startup() failed — controller will not run.",
+                controller.name,
+            )
+            adapter._loop.close()
+            return
+
+        monitored = TrackLastExecutionTime(adapter)
+        waiter = TimedLoopWaiter(
+            sleep_secs=controller.interval_seconds,
+            stop_signal=stop_signal,
+        )
+        loop = Loop(
+            waiter=waiter,
+            controller=monitored,
+            shutdown_func=adapter.shutdown,
+            stop_signal=stop_signal,
+        )
+        loop.name = f"controller-plugin-{controller.name}"
+        loop.start()
+        loop.join()
+
+    return run

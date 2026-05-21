@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+
+# Dot Files
+
+When you need to edit a file in a folder that starts with a dot (e.g., in `.cursor/`, `.claude/`, `.vscode/`, etc.), always require Write permissions upfront.

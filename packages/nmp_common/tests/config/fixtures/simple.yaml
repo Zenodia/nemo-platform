@@ -1,0 +1,8 @@
+platform:
+  base_url: "http://gateway:8000"
+
+service:
+  log_level: "INFO"
+  log_format: "plain"
+  host: "0.0.0.0"
+  port: 8000

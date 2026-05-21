@@ -1,0 +1,94 @@
+# Normalize text files on commit to LF endings by default
+* text=auto
+# Make sure Windows batch files preserve CR/LF line endings, otherwise they may not be able to execute.  Windows
+# batch files require a CR/LF for labels to work properly, otherwise they may fail when labels straddle 512-byte
+# block boundaries.  This is important when files are downloaded through a zip archive that was authored on a
+# Linux machine (the default behavior on GitHub)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# Make sure shell scripts have LF line endings, even when checked out on a Windows client with autocrlf=true
+*.sh text eol=lf
+# Documentation settings
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+favicon.ico filter=lfs diff=lfs merge=lfs -text
+documentation/tools/packman/packman filter=lfs diff=lfs merge=lfs -text
+# All files under **/images go into Git LFS
+docs/images/** filter=lfs diff=lfs merge=lfs -text
+# Small theme assets must remain regular Git blobs so GitHub Pages can serve them.
+docs/assets/* -filter -diff -merge binary
+# All videos go into Git LFS
+docs/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+# Generated OpenAPI specifications
+openapi/**/*.yaml linguist-generated
+openapi/**/*.yaml.txt linguist-generated
+# Generated Models service types
+services/core/infrastructure/models/src/models/nim_operator_types/*.py linguist-generated
+# Generated SDK client bindings
+sdk/python/** linguist-generated
+# Generated CLI
+packages/nemo_platform_ext/src/nemo_platform_ext/cli/commands/api/** linguist-generated
+# Generated license files
+third_party/osv-licenses*.json linguist-generated
+third_party/requirements*.txt linguist-generated
+# Generated Docker lockfiles
+docker/locks/**/uv.lock linguist-generated
+documentation/docs/audit/_snippets/output/*.jsonl filter=lfs diff=lfs merge=lfs -text
+documentation/docs/generate-synthetic-data/images/* filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/workbench/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/comp_coding/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/instruction_following/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/multineedle/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/python_math_exec/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/mcqa/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/comp_coding/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/google_search/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/google_search/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/instruction_following/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/library_judge_math/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/library_judge_math/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/multiverse_math_hard/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/workbench/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/mcqa/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/multineedle/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/multiverse_math_hard/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/grpo/python_math_exec/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/tasks/file_io/data/files_to_upload/nested_2/__0_0.distcp filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/mp_rank_00_customization.nemo filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/customization.nemo filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/gpt2b_tp1_lora.nemo filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/gpt8b_tp4_lora.nemo filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/expected_llmservice_peft_lora/model_weights.ckpt filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/training/nemo/data/expected_llmservice_peft_lora_tp4/model_weights.ckpt filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/python/data/gpt_126m.nemo filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-train/training/training_file.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-train/validation/validation_file.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-eval/email_eval_ms_test.json filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-eval/email_eval_ms_test_sft.json filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/gpt-sft-chat-dataset/e21a501b3cc14174835d787ced1583e2_tokenizer.model filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/gpt-sft-chat-dataset/llama2_tokenizer.model filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/gpt-sft-chat-dataset/merges.txt filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/gpt-sft-chat-dataset/tokenizer.model filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/gpt-sft-chat-dataset/vocab.json filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-convo/training/training_file.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/e2e-eval/email-composition-convo/validation/validation_file.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/tool-calling/xlam_openai_format.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/tool-calling/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/tool-calling/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/tool-calling/testing.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/embedding/training/training.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/embedding/testing.jsonl filter=lfs diff=lfs merge=lfs -text
+services/customizer/tests/testdata/embedding/validation/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+# Files maintained by external garak project
+packages/garak_api/garakapi/_config.py linguist-generated
+packages/garak_api/garakapi/_plugins.py linguist-generated
+packages/garak_api/garakapi/exception.py linguist-generated
+packages/garak_api/garakapi/resources/plugin_cache.json linguist-generated
+# Tiktoken artifact
+plugins/nemo-data-designer/tiktoken-cache/* linguist-generated
+e2e/testdata/customizer/prompt_completion/training.jsonl filter=lfs diff=lfs merge=lfs -text
+e2e/testdata/customizer/prompt_completion/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+e2e/testdata/customizer/chat_format/training.jsonl filter=lfs diff=lfs merge=lfs -text
+e2e/testdata/customizer/chat_format/validation.jsonl filter=lfs diff=lfs merge=lfs -text
+e2e/testdata/customizer/dpo/training.jsonl filter=lfs diff=lfs merge=lfs -text
+e2e/testdata/customizer/dpo/validation.jsonl filter=lfs diff=lfs merge=lfs -text

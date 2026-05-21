@@ -1,0 +1,15 @@
+platform:
+  base_url: "http://gateway:8000"
+  runtime: "kubernetes"
+
+service:
+  log_level: "INFO"
+  log_format: "plain"
+  host: "0.0.0.0"
+  port: 8000
+
+jobs:
+  executor_defaults:
+    kubernetes_job:
+      storage:
+        pvc_name: nemo-network-storage

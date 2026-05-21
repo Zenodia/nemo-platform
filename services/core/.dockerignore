@@ -1,0 +1,7 @@
+docker-bake.hcl
+.venv
+.ruff_cache
+Dockerfile.bake
+**/Dockerfile*
+.dockerignore
+**/__pycache__

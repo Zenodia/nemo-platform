@@ -1,0 +1,1234 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Tests for OpenAI router endpoints."""
+
+import json
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from nemo_platform.types.inference import ModelProvider, ServedModelMapping
+from nemo_platform.types.inference.virtual_model import VirtualModel as SDKVirtualModel
+from nemo_platform_plugin.inference_middleware import (
+    ImmediateResponse,
+    InferenceMiddlewareError,
+    InferenceRequest,
+    InferenceResponse,
+    NemoInferenceMiddleware,
+)
+from nmp.core.inference_gateway.api.dependencies import (
+    global_middleware_registry,
+    global_model_cache,
+    global_virtual_model_cache,
+)
+from nmp.core.inference_gateway.api.middleware_registry import MiddlewareRegistry, ResolvedMiddlewareCall
+from nmp.core.inference_gateway.api.model_cache import ModelCache, ModelEntityInfo, ModelProviderInfo
+from nmp.core.inference_gateway.api.v2.openai import ParseOpenAIModelError, parse_igw_openai_model
+from nmp.core.inference_gateway.api.virtual_model_cache import VirtualModelCache
+
+# OpenAI List Models Tests
+
+
+def test_list_models_empty_cache(app: FastAPI, client: TestClient):
+    """Test listing models when cache is empty."""
+
+    empty_cache = ModelCache()
+    app.dependency_overrides[global_model_cache] = lambda: empty_cache
+
+    response = client.get("/v2/workspaces/default/openai/-/v1/models")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["object"] == "list"
+    assert data["data"] == []
+
+
+def test_list_models_with_single_provider(client: TestClient):
+    """Test listing models with a single provider in cache."""
+    response = client.get("/v2/workspaces/default/openai/-/v1/models")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["object"] == "list"
+    # One model entity from default fixture, returns 2-part ID
+    assert len(data["data"]) >= 1
+    # Verify IDs are workspace/model_entity_name (at least 2 parts; model_entity_name may contain / for LoRA)
+    for model in data["data"]:
+        parts = model["id"].split("/", 1)
+        assert len(parts) >= 2, f"Expected workspace/model_entity_name, got: {model['id']}"
+
+
+def test_list_models_multiple_providers_same_entity(app: FastAPI, client: TestClient):
+    """Test listing models when multiple providers serve the same model entity."""
+
+    cache = ModelCache()
+    # Add multiple providers serving the same model entity
+    provider1 = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ns1",
+            name="provider1",
+            host_url="http://provider1.com",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ns1/model-a",
+                    served_model_name="model-a-v1",
+                )
+            ],
+        ),
+    )
+    provider2 = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ns1",
+            name="provider2",
+            host_url="http://provider2.com",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ns1/model-a",
+                    served_model_name="model-a-v2",
+                )
+            ],
+        ),
+    )
+    cache.update_model_info(provider1)
+    cache.update_model_info(provider2)
+    cache.rebuild_model_entity_map()
+
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/default/openai/-/v1/models")
+    assert response.status_code == 200
+
+    data = response.json()
+    # Model entity should be listed once with 2-part ID (deduped by entity)
+    assert len(data["data"]) == 1
+    assert data["data"][0]["id"] == "ns1/model-a"
+
+
+# OpenAI Get Model Tests
+
+
+def test_get_model_success(client: TestClient):
+    """Test getting a specific model; workspace from URL path, name is model entity name."""
+    response = client.get("/v2/workspaces/e2e-test/openai/-/v1/models/meta_llama-3.2-1b-instruct")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == "e2e-test/meta_llama-3.2-1b-instruct"
+    assert data["owned_by"] == "e2e-test"
+    assert data["object"] == "model"
+
+
+def test_get_model_with_workspace_prefix_in_path(client: TestClient):
+    """Test GET model when path name is workspace/model; path workspace is used, prefix in name is stripped."""
+    response = client.get("/v2/workspaces/e2e-test/openai/-/v1/models/e2e-test/meta_llama-3.2-1b-instruct")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "e2e-test/meta_llama-3.2-1b-instruct"
+    assert data["owned_by"] == "e2e-test"
+
+
+def test_get_model_entity_not_found_single_segment(client: TestClient):
+    """Test GET model with single-segment name (model only); lookup uses path workspace."""
+    response = client.get("/v2/workspaces/default/openai/-/v1/models/nonexistent-entity")
+    assert response.status_code == 404
+    assert "Model entity not found" in response.json()["detail"]
+
+
+def test_get_model_invalid_path_workspace_returns_422(client: TestClient):
+    """Test that invalid workspace in URL path (e.g. single char) returns 422."""
+    response = client.get("/v2/workspaces/a/openai/-/v1/models/validmodel")
+    assert response.status_code == 422
+    assert "invalid" in response.json()["detail"].lower()
+
+
+def test_get_model_entity_not_found_matching_workspace_prefix(client: TestClient):
+    """404 is raised when a path-workspace-prefixed name points at a missing entity."""
+    response = client.get("/v2/workspaces/default/openai/-/v1/models/default/nonexistent-entity")
+    assert response.status_code == 404
+    assert "Model entity not found" in response.json()["detail"]
+
+
+def test_get_model_entity_exists_without_providers(app: FastAPI, client: TestClient):
+    """Test getting a model when entity exists in cache (even without providers)."""
+
+    cache = ModelCache()
+    # Model entity exists in cache - get model should succeed
+    cache.model_entity_info_map[("ns1", "orphan-model")] = ModelEntityInfo(
+        workspace="ns1",
+        name="orphan-model",
+        model_providers=[],
+    )
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/ns1/openai/-/v1/models/orphan-model")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "ns1/orphan-model"
+    assert data["owned_by"] == "ns1"
+
+
+def test_get_model_lora_compound_name_in_path(app: FastAPI, client: TestClient):
+    """LoRA-style composite names (base&adapters/ws/adapter) resolve via GET /v1/models/{name:path}.
+
+    The URL contains two "/" characters after the base workspace prefix, so FastAPI delivers
+    ``name="ws/base&adapters/ws/adder"`` to the handler. The handler must strip only the first
+    segment ("ws/") and look up the cache under ``(ws, "base&adapters/ws/adder")`` — matching the
+    key produced by ``ModelCache.rebuild_model_entity_map``'s ``split("/", 1)``.
+    """
+    cache = ModelCache()
+    provider = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ws",
+            name="nim-provider",
+            host_url="http://nim.example.com",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ws/base&adapters/ws/adder",
+                    served_model_name="adder",
+                ),
+            ],
+        )
+    )
+    cache.update_model_info(provider)
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/ws/openai/-/v1/models/ws/base&adapters/ws/adder")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "ws/base&adapters/ws/adder"
+    assert data["owned_by"] == "ws"
+
+
+def test_get_model_lora_compound_bare_name_in_path(app: FastAPI, client: TestClient):
+    """Bare LoRA composite ``{base}&adapters/{ws}/{adapter}`` resolves via ``GET /v1/models/{name:path}``."""
+    cache = ModelCache()
+    cache.update_model_info(
+        ModelProviderInfo(
+            model_provider=ModelProvider(
+                workspace="ws",
+                name="nim-provider",
+                host_url="http://nim.example.com",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                served_models=[
+                    ServedModelMapping(
+                        model_entity_id="ws/base&adapters/ws/adder",
+                        served_model_name="adder",
+                    ),
+                ],
+            )
+        )
+    )
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/ws/openai/-/v1/models/base&adapters/ws/adder")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "ws/base&adapters/ws/adder"
+    assert data["owned_by"] == "ws"
+
+
+def test_get_model_success_with_custom_provider(app: FastAPI, client: TestClient):
+    """Test getting a model with a custom provider setup."""
+
+    cache = ModelCache()
+    provider = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ns1",
+            name="provider1",
+            host_url="http://provider1.com",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ns1/my-model",
+                    served_model_name="vendor/model/version",
+                )
+            ],
+        ),
+    )
+    cache.update_model_info(provider)
+    cache.rebuild_model_entity_map()
+
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/ns1/openai/-/v1/models/my-model")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "ns1/my-model"
+    assert data["owned_by"] == "ns1"
+
+
+# OpenAI Proxy Tests
+
+
+def test_proxy_chat_completions_success(client: TestClient, mock_proxy_client, mock_proxy_response):
+    """Test successful proxy request; workspace from URL path, model name from body."""
+    request_body = {
+        "model": "meta_llama-3.2-1b-instruct",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    # Mock response body
+    mock_proxy_response._body = [b'{"choices": [{"message": {"content": "Hi there!"}}]}']
+
+    response = client.post("/v2/workspaces/e2e-test/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+
+    # Verify the proxied request was made
+    assert mock_proxy_client.request.called
+    call_args = mock_proxy_client.request.call_args
+
+    # Verify URL was constructed correctly
+    assert "localhost:11434" in call_args.kwargs["url"]
+    assert "v1/chat/completions" in call_args.kwargs["url"]
+
+    # Verify the body was modified to use the served_model_name (resolved from cache)
+    body_data = json.loads(call_args.kwargs["data"])
+    assert body_data["model"] == "meta/llama-3.2-1b-instruct"  # Should be rewritten to served_model_name
+
+
+def test_proxy_missing_model_field(client: TestClient):
+    """Test proxy request with missing model field in body."""
+    request_body = {
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = client.post("/v2/workspaces/default/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 400
+    assert "Could not extract model" in response.json()["detail"]
+
+
+def test_proxy_model_name_only_uses_path_workspace_404_when_not_found(client: TestClient):
+    """Test proxy with model name only; workspace from path, unknown model returns 404."""
+    request_body = {
+        "model": "invalid-format",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = client.post("/v2/workspaces/default/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 404
+    assert "No VirtualModel" in response.json()["detail"]
+
+
+def test_proxy_invalid_path_workspace_returns_422(client: TestClient):
+    """Test that invalid workspace in URL path (e.g. single char) returns 422."""
+    response = client.post(
+        "/v2/workspaces/a/openai/-/v1/chat/completions",
+        json={"model": "validmodel", "messages": [{"role": "user", "content": "Hello"}]},
+    )
+    assert response.status_code == 422
+    assert "invalid" in response.json()["detail"].lower()
+
+
+def test_proxy_model_entity_not_found_matching_workspace_prefix(client: TestClient):
+    """A body model whose path-workspace prefix matches but whose name does not resolve
+    to any VirtualModel (or, by extension, any served entity) returns 404.
+    """
+    request_body = {
+        "model": "default/nonexistent-entity",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = client.post("/v2/workspaces/default/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 404
+    assert "No VirtualModel" in response.json()["detail"]
+
+
+def test_proxy_body_matching_workspace_prefix_stripped(client: TestClient, mock_proxy_client, mock_proxy_response):
+    """Body ``{path_workspace}/{model}`` form is accepted — the prefix is stripped and
+    the request routes through the path workspace. This is the "convenience form"
+    where the client echoes the id returned by ``GET /v1/models`` (which is always
+    prefixed with the entity's workspace) back into ``body.model``.
+    """
+    mock_proxy_response._body = [b'{"choices": []}']
+    request_body = {
+        "model": "e2e-test/meta_llama-3.2-1b-instruct",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/v2/workspaces/e2e-test/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.called
+
+
+def test_proxy_body_mismatched_workspace_prefix_rejected(client: TestClient):
+    """Body ``{other_workspace}/{model}`` form is rejected (422) rather than
+    silently re-homed under the path workspace.
+
+    Previously, the proxy stripped on the first ``/`` unconditionally, which meant
+    ``body.model = "other-workspace/meta_llama-3.2-1b-instruct"`` was silently
+    coerced into the path workspace ``e2e-test``. That conflicted with the bare
+    LoRA case (``base&adapters/ws/adder`` — a legit model_entity_name that
+    itself contains ``/``) and was a quiet cross-workspace footgun in its own
+    right. The fix anchors the strip to the path workspace, so non-matching
+    prefixes pass through unchanged and 422 via ``validate_model_entity_name``
+    (a string containing ``/`` fails ``NAME_PATTERN``). Loud > quiet.
+    """
+    request_body = {
+        "model": "other-workspace/meta_llama-3.2-1b-instruct",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/v2/workspaces/e2e-test/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 422
+
+
+def _make_lora_vm(workspace: str, name: str) -> SDKVirtualModel:
+    """Build a VirtualModel whose name is a LoRA composite, default_model_entity points to itself.
+
+    LoRA composite VMs are the manual escape-hatch today (the autoprovisioned-VM
+    reconciler skips composites at provider_reconciler.py:440).
+    """
+    return SDKVirtualModel(
+        id=f"{workspace}/{name}",
+        entity_id=f"{workspace}/{name}",
+        name=name,
+        workspace=workspace,
+        parent=workspace,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        default_model_entity=f"{workspace}/{name}",
+    )
+
+
+def test_proxy_body_bare_lora_composite_routes(
+    app: FastAPI, client: TestClient, mock_proxy_client, mock_proxy_response
+):
+    """Bare LoRA composite ``{base}&adapters/{ws}/{adapter}`` in ``body.model`` routes
+    via the path workspace without the embedded ``/`` tripping the prefix-strip.
+
+    Requires a manual VirtualModel for the LoRA composite (controller skips them).
+    Verifies the IGW's composite-aware ``parse_model_entity_ref`` (split on first '/')
+    plus ``ModelCache``'s same convention combine to route the request without any
+    string mangling along the way.
+    """
+    mock_proxy_response._body = [b'{"choices": []}']
+    cache = ModelCache()
+    cache.update_model_info(
+        ModelProviderInfo(
+            model_provider=ModelProvider(
+                workspace="ws",
+                name="nim-provider",
+                host_url="http://nim.example.com",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                served_models=[
+                    ServedModelMapping(
+                        model_entity_id="ws/base&adapters/ws/adder",
+                        served_model_name="adder-backend-id",
+                    ),
+                ],
+            )
+        )
+    )
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_lora_vm("ws", "base&adapters/ws/adder")])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "base&adapters/ws/adder",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/v2/workspaces/ws/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.called
+
+    # The proxied body must carry the served_model_name resolved via the LoRA
+    # composite key (ws, "base&adapters/ws/adder"), not a truncated lookup.
+    body_data = json.loads(mock_proxy_client.request.call_args.kwargs["data"])
+    assert body_data["model"] == "adder-backend-id"
+
+
+def test_proxy_body_cross_workspace_lora_routes(
+    app: FastAPI, client: TestClient, mock_proxy_client, mock_proxy_response
+):
+    """Cross-workspace LoRA in ``body.model`` (workspace-prefixed form) routes via the
+    base workspace's provider, leaving ``adapter_ws`` segment intact in the key.
+
+    Given ``provider.workspace = "ws-a"``, ``base_ws = "ws-a"``, and ``adapter_ws = "ws-b"``,
+    all three roles are decoupled in a single fixture. Regression guard: any code
+    that silently clamps ``adapter_ws`` to ``provider.workspace`` (or ``base_ws``)
+    would fail to find the entity under ``("ws-a", "base&adapters/ws-b/adapter")``.
+    """
+    mock_proxy_response._body = [b'{"choices": []}']
+    cache = ModelCache()
+    cache.update_model_info(
+        ModelProviderInfo(
+            model_provider=ModelProvider(
+                workspace="ws-a",
+                name="nim-provider",
+                host_url="http://nim.workspace-a.example.com",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                served_models=[
+                    ServedModelMapping(
+                        model_entity_id="ws-a/base&adapters/ws-b/adapter",
+                        served_model_name="ws-b--adapter",
+                    ),
+                ],
+            )
+        )
+    )
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_lora_vm("ws-a", "base&adapters/ws-b/adapter")])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "ws-a/base&adapters/ws-b/adapter",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/v2/workspaces/ws-a/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.called
+
+    # The proxied body carries the served_model_name (flat-dir encoding) resolved
+    # via the cross-workspace composite key.
+    call_args = mock_proxy_client.request.call_args
+    assert "nim.workspace-a.example.com" in call_args.kwargs["url"]
+    assert "workspace-b" not in call_args.kwargs["url"]
+    body_data = json.loads(call_args.kwargs["data"])
+    assert body_data["model"] == "ws-b--adapter"
+
+
+def test_proxy_body_bare_cross_workspace_lora_routes(
+    app: FastAPI, client: TestClient, mock_proxy_client, mock_proxy_response
+):
+    """Cross-workspace LoRA in bare ``body.model`` form (``base&adapters/ws-b/adapter``)
+    routes via the path workspace without the prefix-strip eating the ``ws-b/`` segment.
+
+    Confirms that when the body model is not prefixed with the path workspace
+    (``ws-a/``), the prefix-strip is a no-op and the bare composite
+    ``base&adapters/ws-b/adapter`` flows through to the cache key
+    ``("ws-a", "base&adapters/ws-b/adapter")`` intact. As elsewhere, requires a
+    manual VirtualModel for the composite.
+    """
+    mock_proxy_response._body = [b'{"choices": []}']
+    cache = ModelCache()
+    cache.update_model_info(
+        ModelProviderInfo(
+            model_provider=ModelProvider(
+                workspace="ws-a",
+                name="nim-provider",
+                host_url="http://nim.workspace-a.example.com",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                served_models=[
+                    ServedModelMapping(
+                        model_entity_id="ws-a/base&adapters/ws-b/adapter",
+                        served_model_name="ws-b--adapter",
+                    ),
+                ],
+            )
+        )
+    )
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_lora_vm("ws-a", "base&adapters/ws-b/adapter")])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "base&adapters/ws-b/adapter",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    response = client.post("/v2/workspaces/ws-a/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.called
+
+    call_args = mock_proxy_client.request.call_args
+    assert "nim.workspace-a.example.com" in call_args.kwargs["url"]
+    body_data = json.loads(call_args.kwargs["data"])
+    assert body_data["model"] == "ws-b--adapter"
+
+
+def test_get_model_cross_workspace_lora(app: FastAPI, client: TestClient):
+    """``GET /v1/models/ws-a/base&adapters/ws-b/adapter`` resolves a cross-workspace LoRA
+    via the path workspace (``ws-a``), with ``owned_by`` reflecting the *base* workspace.
+
+    Complements the same-workspace tests at ``test_get_model_lora_compound_name_in_path``
+    and ``test_get_model_lora_compound_bare_name_in_path``. The handler must strip
+    only the leading ``ws-a/`` segment and look up ``("ws-a", "base&adapters/ws-b/adapter")``.
+    """
+    cache = ModelCache()
+    cache.update_model_info(
+        ModelProviderInfo(
+            model_provider=ModelProvider(
+                workspace="ws-a",
+                name="nim-provider",
+                host_url="http://nim.workspace-a.example.com",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                served_models=[
+                    ServedModelMapping(
+                        model_entity_id="ws-a/base&adapters/ws-b/adapter",
+                        served_model_name="ws-b--adapter",
+                    ),
+                ],
+            )
+        )
+    )
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    response = client.get("/v2/workspaces/ws-a/openai/-/v1/models/ws-a/base&adapters/ws-b/adapter")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "ws-a/base&adapters/ws-b/adapter"
+    assert data["owned_by"] == "ws-a"
+
+
+def test_proxy_no_providers_for_model_entity(app: FastAPI, client: TestClient):
+    """An entity in the cache with no providers reaches ``virtual_model_proxy`` (which
+    requires a VM, so we set up an autoprovisioned-style one) and 404s with the explicit
+    "No providers" message from the entity-resolution step.
+    """
+
+    cache = ModelCache()
+    # Manually create a model entity with no providers
+    cache.model_entity_info_map[("ns1", "orphan-model")] = ModelEntityInfo(
+        workspace="ns1",
+        name="orphan-model",
+        model_providers=[],
+    )
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild(
+        [
+            SDKVirtualModel(
+                id="ns1/orphan-model",
+                entity_id="ns1/orphan-model",
+                workspace="ns1",
+                name="orphan-model",
+                parent="ns1",
+                default_model_entity="ns1/orphan-model",
+                autoprovisioned=True,
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
+        ]
+    )
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "orphan-model",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = client.post("/v2/workspaces/ns1/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 404
+    assert "No providers found" in response.json()["detail"]
+
+
+def test_proxy_with_unresolved_provider_secret(app: FastAPI, client: TestClient):
+    """Provider with an unresolved secret returns 424 even via the VM pipeline."""
+
+    cache = ModelCache()
+    provider = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ns1",
+            name="secure-provider",
+            host_url="http://secure.com",
+            api_key_secret_name="some-secret-id",  # Requires auth
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ns1/secure-model",
+                    served_model_name="secure-v1",
+                )
+            ],
+        ),
+        secret_value=None,  # Secret not available
+    )
+    cache.update_model_info(provider)
+    cache.rebuild_model_entity_map()
+
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild(
+        [
+            SDKVirtualModel(
+                id="ns1/secure-model",
+                entity_id="ns1/secure-model",
+                workspace="ns1",
+                name="secure-model",
+                parent="ns1",
+                default_model_entity="ns1/secure-model",
+                autoprovisioned=True,
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
+        ]
+    )
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "secure-model",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+
+    response = client.post("/v2/workspaces/ns1/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 424
+    assert "Could not fetch secret" in response.json()["detail"]
+    assert "secret not found or unreachable" in response.json()["detail"]
+
+
+def test_proxy_empty_body(client: TestClient):
+    """Test proxy request with empty body."""
+    response = client.post("/v2/workspaces/default/openai/-/v1/chat/completions")
+    assert response.status_code == 400
+
+
+def test_proxy_invalid_json(client: TestClient):
+    """Test proxy request with invalid JSON body."""
+    response = client.post(
+        "/v2/workspaces/default/openai/-/v1/chat/completions",
+        content=b"not valid json",
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 400
+
+
+def test_proxy_get_request(client: TestClient):
+    """Test that GET requests work (though they might not have a body)."""
+    # GET requests typically don't have a body, so this should fail
+    # when trying to parse the model from the body
+    response = client.get("/v2/workspaces/default/openai/-/v1/models")
+    # This should hit the specific /v1/models endpoint, not the catch-all
+    assert response.status_code == 200
+
+
+def test_proxy_different_http_methods(client: TestClient, mock_proxy_client):
+    """Test that different HTTP methods are supported."""
+    request_body = {
+        "model": "meta_llama-3.2-1b-instruct",
+        "data": "test",
+    }
+
+    # Test PUT
+    response = client.put("/v2/workspaces/e2e-test/openai/-/v1/some/endpoint", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.call_args.args[0] == "PUT"
+
+    # Test PATCH
+    response = client.patch("/v2/workspaces/e2e-test/openai/-/v1/some/endpoint", json=request_body)
+    assert response.status_code == 200
+    assert mock_proxy_client.request.call_args.args[0] == "PATCH"
+
+    # Test DELETE - use request method directly
+    response = client.request(
+        "DELETE",
+        "/v2/workspaces/e2e-test/openai/-/v1/some/endpoint",
+        json=request_body,
+    )
+    assert response.status_code == 200
+    assert mock_proxy_client.request.call_args.args[0] == "DELETE"
+
+
+def test_proxy_resolves_served_model_name_with_slashes(app: FastAPI, client: TestClient, mock_proxy_client):
+    """Test proxy resolves served_model_name from cache, even when it contains slashes."""
+
+    cache = ModelCache()
+    provider = ModelProviderInfo(
+        model_provider=ModelProvider(
+            workspace="ns1",
+            name="provider1",
+            host_url="http://provider1.com",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+            served_models=[
+                ServedModelMapping(
+                    model_entity_id="ns1/my-model",
+                    served_model_name="vendor/model/v1.0",
+                )
+            ],
+        ),
+    )
+    cache.update_model_info(provider)
+    cache.rebuild_model_entity_map()
+
+    app.dependency_overrides[global_model_cache] = lambda: cache
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild(
+        [
+            SDKVirtualModel(
+                id="ns1/my-model",
+                entity_id="ns1/my-model",
+                workspace="ns1",
+                name="my-model",
+                parent="ns1",
+                default_model_entity="ns1/my-model",
+                autoprovisioned=True,
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
+        ]
+    )
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    request_body = {
+        "model": "my-model",
+        "messages": [{"role": "user", "content": "test"}],
+    }
+
+    response = client.post("/v2/workspaces/ns1/openai/-/v1/chat/completions", json=request_body)
+    assert response.status_code == 200
+
+    # Verify the model was rewritten to the served_model_name from cache
+    call_args = mock_proxy_client.request.call_args
+    body_data = json.loads(call_args.kwargs["data"])
+    assert body_data["model"] == "vendor/model/v1.0"
+
+
+# Parse OpenAI Model Tests
+
+
+@pytest.mark.parametrize(
+    "model_id,expected",
+    [
+        ("ns1/model1", ("ns1", "model1")),
+        ("default/my-model", ("default", "my-model")),
+        ("workspace_with_underscores/model-with-dashes", ("workspace_with_underscores", "model-with-dashes")),
+        ("e2e-test/meta_llama-3.2-1b-instruct", ("e2e-test", "meta_llama-3.2-1b-instruct")),
+        # Split on first "/" only: model_entity_name may contain "/" (e.g. LoRA with &adapters/)
+        ("ws/base&adapters/ws/my-adapter", ("ws", "base&adapters/ws/my-adapter")),
+        ("e2e-ws/qwen-base&adapters/e2e-ws/lora-1", ("e2e-ws", "qwen-base&adapters/e2e-ws/lora-1")),
+        # Cross-workspace LoRA: base_ws ("ws-a") and adapter_ws ("ws-b") differ —
+        # first-/ split keeps the adapter_ws segment inside model_entity_name.
+        ("ws-a/base&adapters/ws-b/adapter", ("ws-a", "base&adapters/ws-b/adapter")),
+        # 3+ segments: everything after first "/" is model_entity_name
+        ("ns1/model1/extra", ("ns1", "model1/extra")),
+        ("ns1/model1/a/b/c", ("ns1", "model1/a/b/c")),
+    ],
+)
+def test_parse_valid_model(model_id, expected):
+    """Test parsing valid model IDs; split on first '/' so LoRA ids work."""
+    assert parse_igw_openai_model(model_id) == expected
+
+
+@pytest.mark.parametrize(
+    "invalid_model_id",
+    [
+        "invalid",  # No slash
+        "",  # Empty
+    ],
+)
+def test_parse_invalid_model(invalid_model_id):
+    """Test parsing invalid model IDs raises ParseOpenAIModelError."""
+    with pytest.raises(ParseOpenAIModelError):
+        parse_igw_openai_model(invalid_model_id)
+
+
+# ---------------------------------------------------------------------------
+# VirtualModel routing tests
+# ---------------------------------------------------------------------------
+
+
+def _make_sdk_vm(
+    workspace: str,
+    name: str,
+    default_model_entity: str | None = None,
+) -> SDKVirtualModel:
+    return SDKVirtualModel(
+        id=f"{workspace}/{name}",
+        entity_id=f"{workspace}/{name}",
+        name=name,
+        workspace=workspace,
+        parent=workspace,
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+        default_model_entity=default_model_entity or f"{workspace}/{name}",
+    )
+
+
+def test_openai_proxy_routes_via_virtual_model(app: FastAPI, client: TestClient, mock_proxy_client):
+    """When a VirtualModel is in the cache, proxy resolves via its default_model_entity."""
+
+    # VirtualModel pointing at a different model entity name
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-alias", "e2e-test/meta_llama-3.2-1b-instruct")])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-alias", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    # Resolves to a real provider via the VM → model entity → ModelCache path
+    assert response.status_code == 200
+
+
+def test_openai_proxy_falls_back_to_model_cache_when_vm_absent(client: TestClient):
+    """When no VirtualModel is cached, existing ModelCache routing still works."""
+    # The conftest wires an empty VirtualModelCache, so this exercises the fallback
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "meta_llama-3.2-1b-instruct", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 200
+
+
+def test_openai_proxy_virtual_model_no_default_model_entity_no_middleware_returns_422(app: FastAPI, client: TestClient):
+    """VirtualModel with no default_model_entity and no middleware → 422.
+
+    The early guard fires before middleware runs: the VM has no way to produce
+    a routable model entity, so both endpoints fail with 422 immediately.
+    Consistent with the model endpoint's behavior.
+    """
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild(
+        [
+            SDKVirtualModel(
+                id="ws/mw-only",
+                entity_id="ws/mw-only",
+                name="mw-only",
+                workspace="ws",
+                parent="ws",
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+                default_model_entity=None,
+            )
+        ]
+    )
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    response = client.post(
+        "/v2/workspaces/ws/openai/-/v1/chat/completions",
+        json={"model": "mw-only", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Middleware pipeline execution tests
+# ---------------------------------------------------------------------------
+
+
+def _make_registry_with_plugin(
+    workspace: str,
+    vm_name: str,
+    plugin,
+    phase: str = "request",
+) -> MiddlewareRegistry:
+    """Build a MiddlewareRegistry that runs ``plugin`` in the given phase for ws/vm_name."""
+
+    call = ResolvedMiddlewareCall(plugin_name="test-plugin", config_type="t", resolved_config={})
+    registry = MiddlewareRegistry(plugins={"test-plugin": plugin})
+    getattr(registry, f"{phase}_middleware_calls")[(workspace, vm_name)] = [call]
+    # Other phases empty
+    for p in ("request", "response", "post_response"):
+        if p != phase:
+            getattr(registry, f"{p}_middleware_calls")[(workspace, vm_name)] = []
+    return registry
+
+
+def test_openai_proxy_executes_request_middleware(app: FastAPI, client: TestClient):
+    """Request middleware that rewrites body['model'] is obeyed — proxy routes to the rewritten entity."""
+
+    plugin = MagicMock(spec=NemoInferenceMiddleware)
+    # Middleware rewrites model to the real entity name
+    plugin.process_request = AsyncMock(
+        side_effect=lambda ctx, req, cfg: InferenceRequest(
+            body={**req.body, "model": "e2e-test/meta_llama-3.2-1b-instruct"},
+            headers=req.headers,
+            path=req.path,
+        )
+    )
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-router", default_model_entity=None)])
+    registry = _make_registry_with_plugin("e2e-test", "my-router", plugin, phase="request")
+
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-router", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 200
+    plugin.process_request.assert_awaited_once()
+
+
+def test_openai_proxy_response_middleware_receives_model_entity(app: FastAPI, client: TestClient, mock_proxy_client):
+    """Provider calls use served model names, but response middleware ctx.original_request has the entity ID."""
+
+    plugin = MagicMock(spec=NemoInferenceMiddleware)
+    plugin.process_response = AsyncMock(side_effect=lambda ctx, response, cfg: response)
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-router", "e2e-test/meta_llama-3.2-1b-instruct")])
+    registry = _make_registry_with_plugin("e2e-test", "my-router", plugin, phase="response")
+
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-router", "messages": [{"role": "user", "content": "hi"}]},
+    )
+
+    assert response.status_code == 200
+
+    sent_body = json.loads(mock_proxy_client.request.call_args.kwargs["data"])
+    assert sent_body["model"] == "meta/llama-3.2-1b-instruct"
+
+    plugin.process_response.assert_awaited_once()
+    # In the new API, the original request body is on ctx.original_request (args[0]).
+    ctx_arg = plugin.process_response.await_args.args[0]
+    assert ctx_arg.original_request.body["model"] == "e2e-test/meta_llama-3.2-1b-instruct"
+
+
+def test_openai_proxy_request_middleware_path_rewrite_reaches_backend(
+    app: FastAPI, client: TestClient, mock_proxy_client
+):
+    """Request middleware path rewrites are used for the upstream call and middleware context."""
+
+    rewritten_path = "v1/rewritten/chat/completions"
+
+    class PathRewritePlugin:
+        called = False
+
+        async def process_request(self, ctx, req, cfg):
+            self.called = True
+            return InferenceRequest(
+                body={**req.body, "model": "e2e-test/meta_llama-3.2-1b-instruct"},
+                headers=req.headers,
+                path=rewritten_path,
+            )
+
+    class ProxiedPathAssertPlugin:
+        called = False
+
+        async def process_response(self, ctx, response: InferenceResponse, cfg):
+            self.called = True
+            assert ctx.proxied_request.path == rewritten_path
+            return response
+
+    request_plugin = PathRewritePlugin()
+    response_plugin = ProxiedPathAssertPlugin()
+
+    registry = MiddlewareRegistry(
+        plugins={
+            "request-plugin": request_plugin,
+            "response-plugin": response_plugin,
+        }
+    )
+    registry.request_middleware_calls[("e2e-test", "my-router")] = [
+        ResolvedMiddlewareCall(plugin_name="request-plugin", config_type="t", resolved_config={})
+    ]
+    registry.response_middleware_calls[("e2e-test", "my-router")] = [
+        ResolvedMiddlewareCall(plugin_name="response-plugin", config_type="t", resolved_config={})
+    ]
+    registry.post_response_middleware_calls[("e2e-test", "my-router")] = []
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-router", default_model_entity=None)])
+
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-router", "messages": [{"role": "user", "content": "hi"}]},
+    )
+
+    assert response.status_code == 200
+    assert mock_proxy_client.request.call_args.kwargs["url"] == f"http://localhost:11434/{rewritten_path}"
+    assert request_plugin.called is True
+    assert response_plugin.called is True
+
+
+def test_openai_proxy_immediate_response_skips_proxy(app: FastAPI, client: TestClient, mock_proxy_client):
+    """ImmediateResponse from request middleware bypasses backend proxying entirely."""
+
+    plugin = MagicMock(spec=NemoInferenceMiddleware)
+    plugin.process_request = AsyncMock(
+        return_value=ImmediateResponse(data={"id": "direct", "choices": [{"message": {"content": "inline"}}]})
+    )
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-router", default_model_entity=None)])
+    registry = _make_registry_with_plugin("e2e-test", "my-router", plugin, phase="request")
+
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-router", "messages": []},
+    )
+    assert response.status_code == 200
+    # Backend was never called
+    mock_proxy_client.request.assert_not_called()
+
+
+def test_openai_proxy_middleware_error_returns_correct_status(app: FastAPI, client: TestClient):
+    """InferenceMiddlewareError with a custom status_code propagates to the HTTP response."""
+
+    plugin = MagicMock(spec=NemoInferenceMiddleware)
+    plugin.process_request = AsyncMock(side_effect=InferenceMiddlewareError("rate limited", status_code=429))
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm("e2e-test", "my-router", "e2e-test/meta_llama-3.2-1b-instruct")])
+    registry = _make_registry_with_plugin("e2e-test", "my-router", plugin, phase="request")
+
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "my-router", "messages": []},
+    )
+    assert response.status_code == 429
+
+
+def test_openai_proxy_passthrough_vm_no_middleware_unchanged(client: TestClient):
+    """Empty middleware pipeline (passthrough VM) → identical to the ModelCache fallback."""
+    # The default conftest wires an empty VirtualModelCache, so this test
+    # purely exercises the ModelCache fallback path with an empty registry.
+    response = client.post(
+        "/v2/workspaces/e2e-test/openai/-/v1/chat/completions",
+        json={"model": "meta_llama-3.2-1b-instruct", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Regression: virtual_model_proxy must not strip the workspace from body["model"]
+# before dispatching to a mock provider — the mock-response-map is keyed by the
+# workspace-qualified entity id and ``handle_mock_request`` re-reads
+# ``request.json()`` (Starlette caches the parsed body, so any earlier mutation
+# of the dict leaks through).  Without the fix the lookup misses and the mock
+# returns 400 "no mock response is configured".
+# ---------------------------------------------------------------------------
+
+
+def test_virtual_model_proxy_mock_provider_keeps_qualified_body_model(app: FastAPI, client: TestClient, mocker):
+    from nmp.core.inference_gateway.api.mock_provider.responses import (
+        MOCK_RESPONSE_MAP_HEADER,
+        MOCK_SERVED_MODELS_HEADER,
+    )
+    from nmp.core.inference_gateway.config import config as igw_config
+
+    mocker.patch.object(igw_config, "mock_provider_prefix", "igw-mock-")
+
+    workspace = "vm-mock-ws"
+    served_name = "echo-model"
+    qualified_id = f"{workspace}/{served_name}"
+
+    # Mock-response-map is keyed by the workspace-qualified entity id, exactly
+    # how ``add_mock_provider`` builds it for e2e tests.
+    response_map = {
+        qualified_id: [{"response_code": 200, "response_body": {"id": "mock-ok", "choices": []}}],
+    }
+    mock_provider = ModelProvider(
+        workspace=workspace,
+        name=f"igw-mock-{served_name}",
+        host_url="http://mock.local",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        served_models=[ServedModelMapping(model_entity_id=qualified_id, served_model_name=served_name)],
+        default_extra_headers={
+            MOCK_RESPONSE_MAP_HEADER: json.dumps(response_map),
+            MOCK_SERVED_MODELS_HEADER: json.dumps([served_name]),
+        },
+        status="READY",
+    )
+    cache = ModelCache()
+    cache.update_model_info(ModelProviderInfo(model_provider=mock_provider))
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm(workspace, served_name, default_model_entity=qualified_id)])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    response = client.post(
+        f"/v2/workspaces/{workspace}/openai/-/v1/chat/completions",
+        json={"model": qualified_id, "messages": [{"role": "user", "content": "hi"}]},
+    )
+
+    # Pre-fix this returned 400 with "no mock response is configured" because
+    # ``virtual_model_proxy`` rewrote body["model"] to the bare served_name
+    # before ``handle_mock_request`` re-read the (now-mutated) cached body.
+    assert response.status_code == 200, response.text
+    assert response.json().get("id") == "mock-ok"
+
+
+def test_virtual_model_proxy_streaming_mock_provider_runs_response_middleware(app: FastAPI, client: TestClient, mocker):
+    from nmp.core.inference_gateway.api.mock_provider.responses import (
+        MOCK_RESPONSE_MAP_HEADER,
+        MOCK_SERVED_MODELS_HEADER,
+    )
+    from nmp.core.inference_gateway.config import config as igw_config
+
+    mocker.patch.object(igw_config, "mock_provider_prefix", "igw-mock-")
+
+    workspace = "vm-mock-ws"
+    served_name = "stream-model"
+    qualified_id = f"{workspace}/{served_name}"
+    mock_body = {
+        "id": "mock-stream",
+        "object": "chat.completion",
+        "model": qualified_id,
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello world"}, "finish_reason": "stop"}],
+    }
+    response_map = {
+        qualified_id: [{"response_code": 200, "response_body": mock_body}],
+    }
+    mock_provider = ModelProvider(
+        workspace=workspace,
+        name=f"igw-mock-{served_name}",
+        host_url="http://mock.local",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        served_models=[ServedModelMapping(model_entity_id=qualified_id, served_model_name=served_name)],
+        default_extra_headers={
+            MOCK_RESPONSE_MAP_HEADER: json.dumps(response_map),
+            MOCK_SERVED_MODELS_HEADER: json.dumps([served_name]),
+        },
+        status="READY",
+    )
+    cache = ModelCache()
+    cache.update_model_info(ModelProviderInfo(model_provider=mock_provider))
+    cache.rebuild_model_entity_map()
+    app.dependency_overrides[global_model_cache] = lambda: cache
+
+    vm_cache = VirtualModelCache()
+    vm_cache.rebuild([_make_sdk_vm(workspace, served_name, default_model_entity=qualified_id)])
+    app.dependency_overrides[global_virtual_model_cache] = lambda: vm_cache
+
+    plugin = MagicMock(spec=NemoInferenceMiddleware)
+
+    async def process_response(ctx, response: InferenceResponse, cfg):
+        assert ctx.original_request.body["stream"] is True
+        assert not isinstance(response.result, dict)
+        return response
+
+    plugin.process_response = AsyncMock(side_effect=process_response)
+    registry = _make_registry_with_plugin(workspace, served_name, plugin, phase="response")
+    app.dependency_overrides[global_middleware_registry] = lambda: registry
+
+    response = client.post(
+        f"/v2/workspaces/{workspace}/openai/-/v1/chat/completions",
+        json={"model": qualified_id, "messages": [{"role": "user", "content": "hi"}], "stream": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "data: [DONE]" in response.text
+    plugin.process_response.assert_awaited_once()

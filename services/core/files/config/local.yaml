@@ -1,0 +1,26 @@
+files:
+  default_storage_config:
+    type: local
+    path: services/core/files/devstorage
+
+    # type: s3
+    # bucket: default
+    # region: us-west-2
+    # endpoint_url: "http://localhost:9000"
+    # aws_access_key:
+    #   value: minioadmin
+    # aws_secret_key:
+    #   value: minioadmin
+    #
+    # type: hugging_face
+    # repo_id: mgrossman-nvidia/testdataset
+    # repo_type: dataset
+    # endpoint_url: https://huggingface.co
+    # api_token:
+    #   value: TEST
+
+platform:
+  files_url: "http://0.0.0.0:8080"
+
+# Common service configuration. Use defaults.
+service: {}

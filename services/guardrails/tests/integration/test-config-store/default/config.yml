@@ -1,0 +1,4 @@
+# File-based "default" config used to verify that code-defined configs take precedence
+# over file-based configs with the same name. The code-defined "default" has passthrough: true;
+# this file intentionally omits it so tests can confirm it was NOT applied.
+models: []

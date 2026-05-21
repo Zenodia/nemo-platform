@@ -1,0 +1,3 @@
+platform:
+  base_url: "http://gateway:8000"
+  allowed_external_hosts: "https://custom-hf.corp.example.com,https://custom-ngc.corp.example.com"

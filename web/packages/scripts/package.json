@@ -1,0 +1,28 @@
+{
+  "name": "@nemo/scripts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "pnpm concurrently --group -c 'red,blue' -n 'lint:fix,typecheck' \"pnpm lint:fix\" \"pnpm typecheck\"",
+    "check:ci": "pnpm typecheck",
+    "format": "prettier --check './**/*.{js,json,jsx,ts,tsx,yaml}'",
+    "format:fix": "prettier --write './**/*.{js,json,jsx,ts,tsx,yaml}'",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit --noErrorTruncation",
+    "typecheck:go": "tsgo --noEmit --noErrorTruncation",
+    "sortEnv": "tsx ./src/sortEnv.ts ",
+    "rename-nemo-studio": "tsx ./src/rename-nemo-studio.ts"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/yargs": "^17.0.33",
+    "@typescript/native-preview": "catalog:",
+    "knip": "^6.6.2",
+    "prettier": "^3.2.5",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "yargs": "^18.0.0"
+  }
+}

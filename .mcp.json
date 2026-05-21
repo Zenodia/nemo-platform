@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "nmp": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "uv run nemo-mcp --base-url ${NMP_BASE_URL:-http://localhost:8000}"]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""OpenCode agent installer."""
+
+from pathlib import Path
+
+from nemo_platform.cli.commands.skills.base import Scope
+from nemo_platform.cli.commands.skills.installer import BaseAgentInstaller
+
+
+class OpenCodeInstaller(BaseAgentInstaller):
+    name = "opencode"
+    display_name = "OpenCode"
+    supported_scopes = [Scope.PROJECT, Scope.USER]
+
+    def get_install_path(self, scope: Scope, project_root: Path, skill_name: str) -> Path:
+        if scope == Scope.PROJECT:
+            return project_root / ".opencode" / "commands" / f"nemo-{skill_name}" / "SKILL.md"
+        return Path.home() / ".opencode" / "commands" / f"nemo-{skill_name}" / "SKILL.md"

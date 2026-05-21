@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" >
+    <!-- Speech bubble (prompt) -->
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1
+  2 2z"/>
+    <!-- Slider 1: handle at ~40% (x=10) -->
+    <line x1="6" y1="8" x2="8.5"  y2="8"/>
+    <circle cx="10" cy="8" r="1.5"/>
+    <line x1="11.5" y1="8" x2="17"   y2="8"/>
+    <!-- Slider 2: handle at ~65% (x=14) -->
+    <line x1="6" y1="12" x2="12.5" y2="12"/>
+    <circle cx="14" cy="12" r="1.5"/>
+    <line x1="15.5" y1="12" x2="17"   y2="12"/>
+</svg>

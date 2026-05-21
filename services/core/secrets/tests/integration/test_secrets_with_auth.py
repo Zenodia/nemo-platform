@@ -1,0 +1,942 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Integration tests for secrets CRUD operations with authorization enabled.
+
+These tests verify:
+- Role-based access control for secrets (Viewer, Editor, Admin, PlatformAdmin)
+- Viewer can read secret metadata (list, get) but not access value or create/update/delete
+- Editor/Admin can create, update, delete secrets but cannot access the secret value
+- PlatformAdmin can manage secrets but cannot directly access the secret value
+- Only service principals can retrieve secret values via /access (delegation pattern)
+
+Uses the create_test_client pattern for fast in-memory testing.
+"""
+
+from typing import Generator
+
+import pytest
+from nemo_platform import NeMoPlatform, PermissionDeniedError, UnprocessableEntityError
+from nmp.common.sdk_factory import get_sdk_on_behalf_of
+from nmp.core.secrets.config import SecretsServiceConfig
+from nmp.core.secrets.service import SecretsService
+from nmp.testing import (
+    TEST_ADMIN_EMAIL,
+    as_user,
+    create_test_client,
+    short_unique_name,
+    unique_email,
+)
+
+# Service principals have elevated access (like platform admin)
+SERVICE_PRINCIPAL = "service:integration-test"
+
+
+@pytest.fixture
+def sdk(service_config: SecretsServiceConfig) -> Generator[NeMoPlatform, None, None]:
+    """SDK client with SecretsService (auth enabled)."""
+    with create_test_client(
+        SecretsService,
+        auth_enabled=True,
+        service_configs={SecretsService: service_config},
+    ) as sdk:
+        yield sdk
+
+
+@pytest.mark.integration
+class TestSecretsAuthBasics:
+    """Basic authorization tests for secrets endpoints."""
+
+    def test_create_secret_without_auth_fails(self, sdk: NeMoPlatform):
+        """Test that creating a secret without auth headers returns 401."""
+        secret_name = short_unique_name("noauth")
+
+        # Use raw client to test without auth headers
+        response = sdk._client.post(
+            "/apis/secrets/v2/workspaces/default/secrets",
+            json={"name": secret_name, "value": "test-value"},
+        )
+
+        assert response.status_code == 401
+
+    def test_list_secrets_without_auth_fails(self, sdk: NeMoPlatform):
+        """Test that listing secrets without auth headers returns 401."""
+        response = sdk._client.get("/apis/secrets/v2/workspaces/default/secrets")
+        assert response.status_code == 401
+
+
+@pytest.mark.integration
+class TestViewerSecretsAccess:
+    """Test that Viewer role can read secret metadata but not modify or access values."""
+
+    def test_viewer_can_list_secrets(self, sdk: NeMoPlatform):
+        """Test that a Viewer can list secrets in the workspace."""
+        # Setup: platform admin creates workspace and secret
+        workspace_name = short_unique_name("vw-list")
+        secret_name = short_unique_name("secret")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-value",
+        )
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        # Test: viewer can list secrets
+        viewer_sdk = as_user(sdk, viewer_email)
+        result = viewer_sdk.secrets.list(workspace=workspace_name)
+        secret_names = [s.name for s in result.data]
+
+        assert secret_name in secret_names
+
+    def test_viewer_can_get_secret_metadata(self, sdk: NeMoPlatform):
+        """Test that a Viewer can get secret metadata."""
+        workspace_name = short_unique_name("vw-get")
+        secret_name = short_unique_name("secret")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-value",
+        )
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        viewer_sdk = as_user(sdk, viewer_email)
+        secret = viewer_sdk.secrets.retrieve(workspace=workspace_name, name=secret_name)
+
+        assert secret.name == secret_name
+        assert secret.workspace == workspace_name
+
+    def test_viewer_cannot_access_secret_value(self, sdk: NeMoPlatform):
+        """Test that a Viewer cannot access the secret value via /access endpoint."""
+        workspace_name = short_unique_name("vw-acc")
+        secret_name = short_unique_name("secret")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-value",
+        )
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        viewer_sdk = as_user(sdk, viewer_email)
+        with pytest.raises(PermissionDeniedError):
+            viewer_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+    def test_viewer_cannot_create_secret(self, sdk: NeMoPlatform):
+        """Test that a Viewer cannot create secrets."""
+        workspace_name = short_unique_name("vw-crt")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        viewer_sdk = as_user(sdk, viewer_email)
+        with pytest.raises(PermissionDeniedError):
+            viewer_sdk.secrets.create(
+                workspace=workspace_name,
+                name=short_unique_name("new-sec"),
+                value="should-fail",
+            )
+
+    def test_viewer_cannot_update_secret(self, sdk: NeMoPlatform):
+        """Test that a Viewer cannot update secrets."""
+        workspace_name = short_unique_name("vw-upd")
+        secret_name = short_unique_name("secret")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="original-value",
+        )
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        viewer_sdk = as_user(sdk, viewer_email)
+        with pytest.raises(PermissionDeniedError):
+            viewer_sdk.secrets.update(
+                workspace=workspace_name,
+                name=secret_name,
+                value="should-fail",
+            )
+
+    def test_viewer_cannot_delete_secret(self, sdk: NeMoPlatform):
+        """Test that a Viewer cannot delete secrets."""
+        workspace_name = short_unique_name("vw-del")
+        secret_name = short_unique_name("secret")
+        viewer_email = unique_email("viewer")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-value",
+        )
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+
+        viewer_sdk = as_user(sdk, viewer_email)
+        with pytest.raises(PermissionDeniedError):
+            viewer_sdk.secrets.delete(workspace=workspace_name, name=secret_name)
+
+
+@pytest.mark.integration
+class TestEditorSecretsAccess:
+    """Test that Editor role can create, update, delete secrets but not access values."""
+
+    def test_editor_can_create_secret(self, sdk: NeMoPlatform):
+        """Test that an Editor can create secrets."""
+        workspace_name = short_unique_name("ed-crt")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("ed-sec")
+        secret = editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="editor-created-secret",
+        )
+
+        assert secret.name == secret_name
+        assert secret.workspace == workspace_name
+
+    def test_editor_can_list_secrets(self, sdk: NeMoPlatform):
+        """Test that an Editor can list secrets."""
+        workspace_name = short_unique_name("ed-list")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("list-sec")
+        editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="test-data",
+        )
+
+        result = editor_sdk.secrets.list(workspace=workspace_name)
+        secret_names = [s.name for s in result.data]
+
+        assert secret_name in secret_names
+
+    def test_editor_can_get_secret_metadata(self, sdk: NeMoPlatform):
+        """Test that an Editor can get secret metadata."""
+        workspace_name = short_unique_name("ed-get")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("get-sec")
+        editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="test-data",
+        )
+
+        secret = editor_sdk.secrets.retrieve(workspace=workspace_name, name=secret_name)
+        assert secret.name == secret_name
+
+    def test_editor_can_update_secret(self, sdk: NeMoPlatform):
+        """Test that an Editor can update secrets."""
+        workspace_name = short_unique_name("ed-upd")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("upd-sec")
+        editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="original-data",
+        )
+
+        updated = editor_sdk.secrets.update(
+            workspace=workspace_name,
+            name=secret_name,
+            value="updated-data",
+        )
+        assert updated.name == secret_name
+
+    def test_editor_can_delete_secret(self, sdk: NeMoPlatform):
+        """Test that an Editor can delete secrets."""
+        workspace_name = short_unique_name("ed-del")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("del-sec")
+        editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="to-be-deleted",
+        )
+
+        editor_sdk.secrets.delete(workspace=workspace_name, name=secret_name)
+
+        # Verify it's gone
+        result = editor_sdk.secrets.list(workspace=workspace_name)
+        secret_names = [s.name for s in result.data]
+        assert secret_name not in secret_names
+
+    def test_editor_cannot_access_secret_value(self, sdk: NeMoPlatform):
+        """Test that an Editor cannot access the secret value via /access endpoint."""
+        workspace_name = short_unique_name("ed-acc")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+        secret_name = short_unique_name("no-acc")
+        editor_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-data",
+        )
+
+        with pytest.raises(PermissionDeniedError):
+            editor_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+    @pytest.mark.skip("Need to add the ability to authenticate as admin for non-workspaced route")
+    def test_editor_cannot_rotate_encryption_keys(self, sdk: NeMoPlatform):
+        """Test that an Editor cannot call the rotate encryption keys endpoint."""
+        workspace_name = short_unique_name("ed-rot")
+        editor_email = unique_email("editor")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+
+        editor_sdk = as_user(sdk, editor_email)
+
+        with pytest.raises(PermissionDeniedError):
+            editor_sdk.secrets.admin.rotate_encryption_keys()
+
+
+@pytest.mark.integration
+class TestAdminSecretsAccess:
+    """Test that Admin role has same access as Editor for secrets (no value access)."""
+
+    def test_admin_can_create_secret(self, sdk: NeMoPlatform):
+        """Test that an Admin can create secrets."""
+        admin_email = unique_email("admin")
+        workspace_name = short_unique_name("adm-crt")
+
+        # Platform admin creates workspace and adds our test admin
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=admin_email,
+            roles=["Admin"],
+            wait_role_propagation=True,
+        )
+
+        admin_sdk = as_user(sdk, admin_email)
+        secret_name = short_unique_name("adm-sec")
+        secret = admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="admin-created-secret",
+        )
+
+        assert secret.name == secret_name
+
+    def test_admin_can_update_secret(self, sdk: NeMoPlatform):
+        """Test that an Admin can update secrets."""
+        admin_email = unique_email("admin")
+        workspace_name = short_unique_name("adm-upd")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=admin_email,
+            roles=["Admin"],
+            wait_role_propagation=True,
+        )
+
+        admin_sdk = as_user(sdk, admin_email)
+        secret_name = short_unique_name("upd-sec")
+        admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="original-data",
+        )
+
+        admin_sdk.secrets.update(
+            workspace=workspace_name,
+            name=secret_name,
+            value="updated-by-admin",
+        )
+
+    def test_admin_can_delete_secret(self, sdk: NeMoPlatform):
+        """Test that an Admin can delete secrets."""
+        admin_email = unique_email("admin")
+        workspace_name = short_unique_name("adm-del")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=admin_email,
+            roles=["Admin"],
+            wait_role_propagation=True,
+        )
+
+        admin_sdk = as_user(sdk, admin_email)
+        secret_name = short_unique_name("del-sec")
+        admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="to-be-deleted",
+        )
+
+        admin_sdk.secrets.delete(workspace=workspace_name, name=secret_name)
+
+    def test_admin_cannot_access_secret_value(self, sdk: NeMoPlatform):
+        """Test that an Admin cannot access the secret value via /access endpoint."""
+        admin_email = unique_email("admin")
+        workspace_name = short_unique_name("adm-acc")
+
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=admin_email,
+            roles=["Admin"],
+            wait_role_propagation=True,
+        )
+
+        admin_sdk = as_user(sdk, admin_email)
+        secret_name = short_unique_name("no-acc")
+        admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="admin-secret",
+        )
+
+        with pytest.raises(PermissionDeniedError):
+            admin_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+
+@pytest.mark.integration
+class TestPlatformAdminSecretsAccess:
+    """Test that Platform Admin cannot directly access secret values.
+
+    PlatformAdmin is denied direct access to the /access endpoint by OPA policy.
+    Secret values must be accessed through the service delegation pattern only.
+    """
+
+    def test_platform_admin_cannot_access_secret_value(self, sdk: NeMoPlatform):
+        """Test that a Platform Admin cannot directly access the secret value."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        secret_name = short_unique_name("pa-sec")
+        secret_value = "platform-admin-secret-value"
+
+        admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value=secret_value,
+        )
+
+        with pytest.raises(PermissionDeniedError):
+            admin_sdk.secrets.access(workspace="default", name=secret_name)
+
+    def test_platform_admin_can_create_secret_in_any_workspace(self, sdk: NeMoPlatform):
+        """Test that a Platform Admin can create secrets in any workspace."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        workspace_name = short_unique_name("pa-ws")
+
+        admin_sdk.workspaces.create(name=workspace_name)
+
+        secret_name = short_unique_name("pa-sec")
+        secret = admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value="secret-in-new-workspace",
+        )
+
+        assert secret.name == secret_name
+        assert secret.workspace == workspace_name
+
+    @pytest.mark.skip("Need to add the ability to authenticate as admin for non-workspaced route")
+    def test_platform_admin_can_rotate_encryption_keys(self, sdk: NeMoPlatform):
+        """Test that a Platform Admin can call the rotate encryption keys endpoint.
+
+        The rotate-encryption-keys endpoint re-encrypts all secrets with the current
+        encryption provider. This is an admin-only operation for key rotation scenarios.
+        """
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+
+        # Create some secrets to ensure there's data to potentially rotate
+        secret_name = short_unique_name("rot-sec")
+        admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value="secret-for-rotation-test",
+        )
+
+        # Call the rotate encryption keys endpoint
+        response = sdk.secrets.admin.rotate_encryption_keys()
+
+        assert response.success is True
+        assert response.rotated_secrets >= 1
+
+        # Verify the secret is still accessible after rotation
+        result = admin_sdk.secrets.access(workspace="default", name=secret_name)
+        assert result.value == "secret-for-rotation-test"
+
+
+@pytest.mark.integration
+class TestServiceCredentialsSecretsAccess:
+    """Test that service credentials can access secret values."""
+
+    def test_service_credentials_can_access_secret_value(self, sdk: NeMoPlatform):
+        """Test that service credentials can access the secret value via /access endpoint."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        secret_name = short_unique_name("svc-sec")
+        secret_value = "service-accessible-secret"
+
+        admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value=secret_value,
+        )
+
+        service_sdk = as_user(sdk, SERVICE_PRINCIPAL)
+        result = service_sdk.secrets.access(workspace="default", name=secret_name)
+
+        assert result.name == secret_name
+        assert result.value == secret_value
+
+    def test_service_credentials_can_list_secrets(self, sdk: NeMoPlatform):
+        """Test that service credentials can list secrets."""
+        service_sdk = as_user(sdk, SERVICE_PRINCIPAL)
+
+        result = service_sdk.secrets.list(workspace="default")
+        assert result.data is not None
+
+    def test_service_credentials_can_create_secrets(self, sdk: NeMoPlatform):
+        """Test that service credentials can create secrets."""
+        service_sdk = as_user(sdk, SERVICE_PRINCIPAL)
+        secret_name = short_unique_name("svc-crt")
+
+        secret = service_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value="service-created-secret",
+        )
+
+        assert secret.name == secret_name
+
+
+@pytest.mark.integration
+class TestSecretDataNotExposed:
+    """Test that secret data is never exposed in metadata responses."""
+
+    def test_secret_data_not_in_create_response(self, sdk: NeMoPlatform):
+        """Test that secret data is not returned in create response."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        secret_name = short_unique_name("no-data")
+
+        secret = admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value="should-not-be-visible",
+        )
+
+        assert secret.name == secret_name
+
+        # Verify via raw HTTP response
+        raw_response = sdk._client.post(
+            "/apis/secrets/v2/workspaces/default/secrets",
+            json={"name": short_unique_name("raw"), "value": "hidden"},
+            headers={"X-NMP-Principal-Id": TEST_ADMIN_EMAIL},
+        )
+        response_json = raw_response.json()
+        assert "data" not in response_json
+        assert "_data" not in response_json
+
+    def test_secret_data_not_in_list_response(self, sdk: NeMoPlatform):
+        """Test that secret data is not returned when listing secrets."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        secret_name = short_unique_name("list-no")
+
+        admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value="hidden-in-list",
+        )
+
+        response = sdk._client.get(
+            "/apis/secrets/v2/workspaces/default/secrets",
+            headers={"X-NMP-Principal-Id": TEST_ADMIN_EMAIL},
+        )
+        response_json = response.json()
+
+        for secret in response_json.get("data", []):
+            assert "data" not in secret
+            assert "_data" not in secret
+
+    def test_secret_data_not_in_get_response(self, sdk: NeMoPlatform):
+        """Test that secret data is not returned when getting a single secret."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        secret_name = short_unique_name("get-no")
+
+        admin_sdk.secrets.create(
+            workspace="default",
+            name=secret_name,
+            value="hidden-in-get",
+        )
+
+        response = sdk._client.get(
+            f"/apis/secrets/v2/workspaces/default/secrets/{secret_name}",
+            headers={"X-NMP-Principal-Id": TEST_ADMIN_EMAIL},
+        )
+        response_json = response.json()
+
+        assert "data" not in response_json
+        assert "_data" not in response_json
+
+
+@pytest.mark.integration
+class TestDelegatedSecretAccess:
+    """Test delegated secret access using on-behalf-of header.
+
+    These tests verify that when a principal acts on behalf of another user,
+    the delegated user's permissions are checked for secret access.
+
+    Note: Viewer role includes secrets.read permission (see static-authz.yaml).
+    """
+
+    def test_service_principal_can_access_on_behalf_of_viewer(self, sdk: NeMoPlatform):
+        """Test service principal accessing secret on behalf of a Viewer who has secrets.read.
+
+        Only service principals can call the /access endpoint. PlatformAdmin is denied
+        direct access by OPA policy, so delegation must use a service principal as caller.
+        """
+        workspace_name = short_unique_name("del-vw")
+        secret_name = short_unique_name("secret")
+        secret_value = "delegated-secret-value"
+        viewer_email = unique_email("viewer")
+
+        # Setup: create workspace, add viewer, create secret
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=viewer_email,
+            roles=["Viewer"],
+            wait_role_propagation=True,
+        )
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Service principal accesses secret on behalf of viewer
+        # Viewer has secrets.read permission, so this should succeed
+        delegated_sdk = get_sdk_on_behalf_of(as_user(sdk, SERVICE_PRINCIPAL), viewer_email)
+        result = delegated_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+        assert result.name == secret_name
+        assert result.value == secret_value
+
+    def test_platform_admin_cannot_access_on_behalf_of_non_member(self, sdk: NeMoPlatform):
+        """Test platform admin accessing secret on behalf of a non-member user."""
+        workspace_name = short_unique_name("del-nm")
+        secret_name = short_unique_name("secret")
+        secret_value = "delegated-secret-value"
+        non_member_email = unique_email("nonmember")
+
+        # Setup: create workspace and secret, but don't add the user as a member
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Platform admin accesses secret on behalf of non-member
+        # Non-member doesn't have any role in workspace, so this should fail
+        delegated_sdk = get_sdk_on_behalf_of(as_user(sdk, TEST_ADMIN_EMAIL), non_member_email)
+        with pytest.raises(PermissionDeniedError):
+            delegated_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+    def test_service_principal_can_access_on_behalf_of_editor(self, sdk: NeMoPlatform):
+        """Test service principal accessing secret on behalf of an Editor."""
+        workspace_name = short_unique_name("del-ed")
+        secret_name = short_unique_name("secret")
+        secret_value = "service-delegated-secret"
+        editor_email = unique_email("editor")
+
+        # Setup: create workspace, add editor, create secret
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Service principal accesses secret on behalf of editor
+        # Editor has secrets.read permission (inherits from Viewer), so this should succeed
+        delegated_sdk = get_sdk_on_behalf_of(as_user(sdk, SERVICE_PRINCIPAL), editor_email)
+        result = delegated_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+        assert result.name == secret_name
+        assert result.value == secret_value
+
+    def test_delegated_access_without_on_behalf_of_uses_caller_permissions(self, sdk: NeMoPlatform):
+        """Test that without on-behalf-of header, caller's own permissions are used.
+
+        PlatformAdmin cannot directly access secret values (denied by OPA policy).
+        Service principals can access directly without delegation.
+        """
+        workspace_name = short_unique_name("no-del")
+        secret_name = short_unique_name("secret")
+        secret_value = "non-delegated-secret"
+
+        # Setup: create workspace and secret
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Platform admin cannot access secret directly (denied by OPA deny rule)
+        with pytest.raises(PermissionDeniedError):
+            platform_admin_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+        # Service principal can access directly without delegation
+        service_sdk = as_user(sdk, SERVICE_PRINCIPAL)
+        result = service_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+        assert result.name == secret_name
+        assert result.value == secret_value
+
+    def test_service_can_access_on_behalf_of_service(self, sdk: NeMoPlatform):
+        """Test service principal accessing secret on behalf of another service."""
+        workspace_name = short_unique_name("svc-del")
+        secret_name = short_unique_name("secret")
+        secret_value = "service-to-service-secret"
+        other_service = "service:other-service"
+
+        # Setup: create workspace and secret
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Service accesses secret on behalf of another service
+        # Both services have elevated permissions, so this should succeed
+        delegated_sdk = get_sdk_on_behalf_of(as_user(sdk, SERVICE_PRINCIPAL), other_service)
+        result = delegated_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+        assert result.name == secret_name
+        assert result.value == secret_value
+
+    def test_editor_cannot_access_on_behalf_of_non_member(self, sdk: NeMoPlatform):
+        """Test that an Editor cannot access secrets on behalf of a non-member."""
+        workspace_name = short_unique_name("ed-del")
+        secret_name = short_unique_name("secret")
+        secret_value = "editor-delegated-secret"
+        editor_email = unique_email("editor")
+        non_member_email = unique_email("nonmember")
+
+        # Setup: create workspace, add editor, create secret
+        platform_admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        platform_admin_sdk.workspaces.create(name=workspace_name)
+        platform_admin_sdk.members.create(
+            workspace=workspace_name,
+            principal=editor_email,
+            roles=["Editor"],
+            wait_role_propagation=True,
+        )
+        platform_admin_sdk.secrets.create(
+            workspace=workspace_name,
+            name=secret_name,
+            value=secret_value,
+        )
+
+        # Editor tries to access secret on behalf of non-member
+        delegated_sdk = get_sdk_on_behalf_of(as_user(sdk, editor_email), non_member_email)
+        with pytest.raises(PermissionDeniedError):
+            delegated_sdk.secrets.access(workspace=workspace_name, name=secret_name)
+
+
+@pytest.mark.integration
+class TestSecretNameValidation:
+    """Test that secret name validation errors are surfaced correctly.
+
+    Regression tests for: validation errors from entity store should return
+    422 (Unprocessable Content) with clear error messages, not 500 (Internal Server Error).
+    """
+
+    def test_create_secret_with_uppercase_returns_422(self, sdk: NeMoPlatform):
+        """Test that creating a secret with uppercase letters returns 422.
+
+        Entity names must be DNS-compliant (lowercase letters, digits, hyphens only).
+        When a name contains uppercase letters, the entity store validation fails.
+        This should return a 422 Unprocessable Content with a clear error message.
+
+        Regression test: Previously returned 500 "Internal authorization error" because
+        the validation error from the entity store was caught as an unexpected exception
+        in the authorization middleware.
+        """
+
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+
+        # Name with uppercase letter - violates DNS-compliant naming rules
+        invalid_name = "test-secret-123-Test"
+
+        with pytest.raises(UnprocessableEntityError) as exc_info:
+            admin_sdk.secrets.create(
+                workspace="default",
+                name=invalid_name,
+                value="test-value",
+            )
+
+        # Verify the error message mentions the name validation issue
+        error_message = str(exc_info.value)
+        assert "should match pattern" in error_message.lower(), (
+            f"Expected error message about pattern requirement, got: {error_message}"
+        )
+
+    def test_create_secret_with_all_uppercase_returns_422(self, sdk: NeMoPlatform):
+        """Test that creating a secret with all uppercase letters returns 422."""
+
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+        invalid_name = "TEST-SECRET"
+
+        with pytest.raises(UnprocessableEntityError) as exc_info:
+            admin_sdk.secrets.create(
+                workspace="default",
+                name=invalid_name,
+                value="test-value",
+            )
+
+        error_message = str(exc_info.value)
+        assert "should match pattern" in error_message.lower()
+
+    def test_create_secret_with_valid_name_succeeds(self, sdk: NeMoPlatform):
+        """Test that creating a secret with a valid DNS-compliant name works."""
+        admin_sdk = as_user(sdk, TEST_ADMIN_EMAIL)
+
+        # Valid DNS-compliant name (lowercase, digits, hyphens only)
+        valid_name = short_unique_name("valid-secret")
+
+        secret = admin_sdk.secrets.create(
+            workspace="default",
+            name=valid_name,
+            value="test-value",
+        )
+
+        assert secret.name == valid_name

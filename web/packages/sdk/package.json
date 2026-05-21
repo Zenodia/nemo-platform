@@ -1,0 +1,42 @@
+{
+  "name": "@nemo/sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A collection of generated types and hooks for NeMo Platform.",
+  "scripts": {
+    "gen": "tsx ./orval/generate.ts",
+    "gen:all": "tsx ./generateAll.ts",
+    "gen:agents": "tsx ./orval/generate.ts agents",
+    "gen:agents-zod": "ORVAL_CLIENT=zod tsx ./orval/generate.ts agents",
+    "gen:customizer": "tsx ./orval/generate.ts customizer",
+    "gen:customizer-zod": "ORVAL_CLIENT=zod tsx ./orval/generate.ts customizer",
+    "gen:data-designer": "tsx ./orval/generate.ts data-designer",
+    "gen:data-designer-zod": "ORVAL_CLIENT=zod tsx ./orval/generate.ts data-designer",
+    "gen:deployment-management": "tsx ./orval/generate.ts deployment-management",
+    "gen:entity-store": "tsx ./orval/generate.ts entity-store",
+    "gen:evaluator": "tsx ./orval/generate.ts evaluator",
+    "gen:guardrails": "tsx ./orval/generate.ts guardrails",
+    "gen:inference-gateway": "tsx ./orval/generate.ts inference-gateway",
+    "gen:jobs": "tsx ./orval/generate.ts jobs",
+    "gen:models": "tsx ./orval/generate.ts models",
+    "gen:platform": "tsx ./orval/generate.ts platform",
+    "gen:platform-zod": "ORVAL_CLIENT=zod tsx ./orval/generate.ts platform",
+    "gen:safe-synthesizer": "tsx ./orval/generate.ts safe-synthesizer",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:",
+    "axios": "catalog:",
+    "oidc-client-ts": "catalog:",
+    "qs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/qs": "catalog:",
+    "concurrently": "catalog:",
+    "orval": "catalog:",
+    "prettier": "catalog:",
+    "tsx": "catalog:",
+    "vitest": "catalog:"
+  }
+}

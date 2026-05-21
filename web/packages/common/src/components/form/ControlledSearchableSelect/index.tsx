@@ -1,0 +1,317 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { TextInputSpinner } from '@nemo/common/src/components/form/TextInputSpinner';
+import { UseControllerComponentProps } from '@nemo/common/src/types';
+import {
+  Block,
+  Flex,
+  FormField,
+  SelectContent,
+  SelectItem,
+  SelectProps,
+  SelectRoot,
+  SelectTrigger,
+  Spinner,
+  Stack,
+  Text,
+  TextInput,
+} from '@nvidia/foundations-react-core';
+import { Filter } from 'lucide-react';
+import { ChangeEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useController } from 'react-hook-form';
+
+/**
+ * SelectTrigger resolves display text with `value || placeholder || "Select item"`, so a real empty
+ * string is treated as “unset”. Use ZWSP when the consumer wants no visible placeholder.
+ */
+const INVISIBLE_TRIGGER_PLACEHOLDER = '\u200b';
+
+export interface SelectItemOption {
+  /** The value to be stored in the form */
+  value: string;
+  /** The display label for the option */
+  label: string;
+  /** Optional custom render for the option */
+  render?: ReactNode;
+}
+
+export interface ControlledSearchableSelectProps
+  extends
+    Omit<SelectProps, 'items' | 'onChange' | 'defaultValue' | 'value' | 'renderValue' | 'kind'>,
+    UseControllerComponentProps {
+  /** Array of options to display */
+  options: SelectItemOption[];
+  /** Callback fired when search input changes (for server-side search) */
+  onSearchChange?: (searchValue: string) => void;
+  /** Callback to load more items when scrolling to bottom */
+  onLoadMore?: () => Promise<void>;
+  /** Whether there are more items to load */
+  hasMore?: boolean;
+  /** Whether currently loading initial data */
+  isLoading?: boolean;
+  /** Whether currently loading more items */
+  isLoadingMore?: boolean;
+  /** Debounce delay for search input in milliseconds */
+  searchDebounceMs?: number;
+  /** Placeholder text for the search input */
+  searchPlaceholder?: string;
+  /**
+   * Placeholder text for the select trigger. Pass `''` for no visible placeholder (default copy is
+   * avoided via a zero-width space; the field label still describes the control).
+   */
+  triggerPlaceholder?: string;
+  /** Message to show when no options match the search */
+  emptyMessage?: string;
+  /** Message to show when all items have been loaded */
+  doneLoadingMessage?: string;
+  /**
+   * Sticky footer below the scrollable list (e.g. “Create new”). Use `close` to dismiss the menu
+   * before opening another dialog.
+   */
+  listFooter?: (ctx: { close: () => void }) => ReactNode;
+  /** Hide error message */
+  hideError?: boolean;
+  /** Callback when value changes */
+  onChange?: (value: string) => void;
+  /** Callback when dropdown opens/closes */
+  onOpenChange?: (isOpen: boolean) => void;
+  /** Maximum height for the options list */
+  maxHeight?: string;
+  /** Custom render function for the selected value in the trigger */
+  renderValue?: (
+    value: string | string[] | undefined,
+    setValue:
+      | ((nextValue: string | string[]) => void)
+      | ((nextValueFunc: (prevValue: string | string[]) => string | string[]) => void)
+  ) => ReactNode;
+}
+
+export const ControlledSearchableSelect = ({
+  options,
+  onSearchChange,
+  onLoadMore,
+  hasMore = false,
+  isLoading = false,
+  isLoadingMore = false,
+  searchDebounceMs = 300,
+  searchPlaceholder = 'Search...',
+  triggerPlaceholder = 'Select an option',
+  emptyMessage = 'No results found',
+  doneLoadingMessage,
+  listFooter,
+  hideError = false,
+  onChange,
+  onOpenChange,
+  maxHeight = '300px',
+  formFieldProps,
+  useControllerProps,
+  portal,
+  disabled,
+  required,
+  status,
+  renderValue,
+  ...selectProps
+}: ControlledSearchableSelectProps) => {
+  const [localSearch, setLocalSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectOpen, setSelectOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMoreLocal, setIsLoadingMoreLocal] = useState(false);
+
+  const {
+    field: { onBlur, onChange: onChangeControl, value },
+    fieldState: { error },
+  } = useController(useControllerProps);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(localSearch);
+      onSearchChange?.(localSearch);
+    }, searchDebounceMs);
+
+    return () => clearTimeout(timer);
+  }, [localSearch, searchDebounceMs, onSearchChange]);
+
+  // Filter options locally when no server-side search callback provided
+  const filteredOptions = useMemo(() => {
+    if (onSearchChange) {
+      // Server-side search - don't filter locally
+      return options;
+    }
+    // Client-side filtering
+    const searchLower = debouncedSearch.toLowerCase();
+    return options.filter((option) => option.label.toLowerCase().includes(searchLower));
+  }, [options, debouncedSearch, onSearchChange]);
+
+  // Handle infinite scroll
+  const loadMoreItems = useCallback(async () => {
+    if (isLoadingMoreLocal || !hasMore || !onLoadMore) return;
+    setIsLoadingMoreLocal(true);
+    try {
+      await onLoadMore();
+    } finally {
+      setIsLoadingMoreLocal(false);
+    }
+  }, [isLoadingMoreLocal, hasMore, onLoadMore]);
+
+  const showLoading = isLoading || isLoadingMore || isLoadingMoreLocal;
+  const loadingMore = isLoadingMore || isLoadingMoreLocal;
+  const showDoneFooter = Boolean(doneLoadingMessage) && !hasMore && !showLoading;
+  const showLoadMoreFooter = Boolean(onLoadMore) && (hasMore || loadingMore || showDoneFooter);
+
+  useEffect(() => {
+    const currentLoaderRef = loaderRef.current;
+    if (!showLoadMoreFooter || !currentLoaderRef) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreItems();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(currentLoaderRef);
+
+    return () => {
+      observer.unobserve(currentLoaderRef);
+    };
+  }, [loadMoreItems, showLoadMoreFooter]);
+
+  useEffect(() => {
+    if (!selectOpen) {
+      setLocalSearch('');
+      setDebouncedSearch('');
+      return;
+    }
+    const timeoutId = setTimeout(() => searchInputRef.current?.focus(), 0);
+    return () => clearTimeout(timeoutId);
+  }, [selectOpen]);
+
+  const handleSelectOpenChange = (isOpen: boolean) => {
+    setSelectOpen(isOpen);
+    onOpenChange?.(isOpen);
+  };
+
+  const handleValueChange = (newValue: string) => {
+    onChange?.(newValue);
+    onChangeControl(newValue);
+  };
+
+  const handleBlur = () => {
+    onBlur();
+  };
+
+  return (
+    <FormField
+      name={useControllerProps.name}
+      slotError={hideError ? undefined : error?.message}
+      status={status || (error ? 'error' : undefined)}
+      required={required}
+      {...formFieldProps}
+    >
+      <SelectRoot
+        disabled={disabled}
+        value={value ?? ''}
+        onValueChange={handleValueChange}
+        open={selectOpen}
+        onOpenChange={handleSelectOpenChange}
+      >
+        <SelectTrigger
+          renderValue={renderValue}
+          className="w-full border-1 nv-input"
+          onBlur={handleBlur}
+          placeholder={
+            isLoading
+              ? 'Loading...'
+              : triggerPlaceholder === ''
+                ? INVISIBLE_TRIGGER_PLACEHOLDER
+                : triggerPlaceholder
+          }
+          slotEnd={isLoading && <TextInputSpinner />}
+          required={required}
+          status={status || (error ? 'error' : undefined)}
+          {...selectProps}
+        />
+        <SelectContent className="w-(--radix-popper-anchor-width)" portal={portal}>
+          <Block className="p-2 w-full sticky top-0 bg-surface z-10">
+            <TextInput
+              ref={searchInputRef}
+              name={`${useControllerProps.name}-search`}
+              className="overflow-hidden"
+              slotStart={<Filter />}
+              placeholder={searchPlaceholder}
+              value={localSearch}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                setLocalSearch(e.target.value);
+              }}
+              attributes={{
+                TextInputValue: {
+                  'data-testid': `${useControllerProps.name}-search`,
+                },
+              }}
+            />
+          </Block>
+          {/* eslint-disable-next-line no-restricted-syntax */}
+          <Stack className="overflow-auto w-full" style={{ maxHeight }}>
+            {isLoading && filteredOptions.length === 0 ? (
+              <Flex align="center" justify="center" className="py-4">
+                <Spinner aria-label="Loading options" size="small" />
+              </Flex>
+            ) : filteredOptions.length > 0 ? (
+              <>
+                {isLoading && (
+                  <Flex align="center" justify="center" className="py-2">
+                    <Spinner aria-label="Refreshing options" size="small" />
+                  </Flex>
+                )}
+                {filteredOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.render ?? option.label}
+                  </SelectItem>
+                ))}
+                {/* Infinite scroll sentinel; collapsed to 1px when idle with more pages (no empty min-height) */}
+                {showLoadMoreFooter ? (
+                  <Flex
+                    ref={loaderRef}
+                    align="center"
+                    justify="center"
+                    className={
+                      loadingMore || showDoneFooter
+                        ? 'min-h-8 py-2'
+                        : 'h-px min-h-px w-full shrink-0 py-0'
+                    }
+                  >
+                    {loadingMore ? <Spinner aria-label="Loading more" size="small" /> : null}
+                    {showDoneFooter ? (
+                      <Text kind="body/regular/sm" className="text-subtle">
+                        {doneLoadingMessage}
+                      </Text>
+                    ) : null}
+                  </Flex>
+                ) : null}
+              </>
+            ) : (
+              <Flex align="center" justify="center" className="py-4">
+                <Text kind="body/regular/sm" className="text-subtle">
+                  {emptyMessage}
+                </Text>
+              </Flex>
+            )}
+          </Stack>
+          {listFooter ? (
+            <Block className="shrink-0 border-t-1 border-t-base p-0 w-full">
+              {listFooter({
+                close: () => setSelectOpen(false),
+              })}
+            </Block>
+          ) : null}
+        </SelectContent>
+      </SelectRoot>
+    </FormField>
+  );
+};

@@ -1,0 +1,217 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from nmp.common.entities import DEFAULT_WORKSPACE, EntityClient
+from nmp.common.jobs.log_client import dep_job_logs_client
+from nmp.common.jobs.schemas import InvalidPageCursorError, PlatformJobLog, PlatformJobLogPage
+from nmp.core.jobs.api.v2.jobs.endpoints import dep_dispatcher, router
+from nmp.core.jobs.app.dispatcher import JobDispatcher
+from nmp.testing import create_test_client
+
+
+@pytest.fixture
+def sample_logs() -> list[PlatformJobLog]:
+    """Create sample job logs for testing."""
+    return [
+        PlatformJobLog(
+            timestamp=datetime(2024, 1, 1, 12, 0, 0),
+            job="test-job",
+            job_step="step1",
+            job_task="task1",
+            message="Starting job execution",
+        ),
+        PlatformJobLog(
+            timestamp=datetime(2024, 1, 1, 12, 0, 5),
+            job="test-job",
+            job_step="step1",
+            job_task="task1",
+            message="Processing data",
+        ),
+        PlatformJobLog(
+            timestamp=datetime(2024, 1, 1, 12, 0, 10),
+            job="test-job",
+            job_step="step1",
+            job_task="task1",
+            message="Job completed successfully",
+        ),
+    ]
+
+
+class TestJobLogsAPI:
+    """Test suite for job logs API endpoints."""
+
+    @pytest.fixture
+    def mock_logs_client(self):
+        """Create a mock logs client for querying job logs."""
+        client = MagicMock()
+        client.query_logs = AsyncMock()
+        return client
+
+    @pytest.fixture
+    def dispatcher(self):
+        """Create a real dispatcher with test entity store and mock SDK."""
+        projects = ["default/test-project"]
+        with create_test_client(client_type=EntityClient, projects=projects) as mock_store:
+            # Create mock SDK
+            mock_nmp_client = MagicMock()
+            mock_nmp_client.files = MagicMock()
+            mock_nmp_client.files.filesets = MagicMock()
+            mock_nmp_client.files.filesets.create = AsyncMock()
+            mock_nmp_client.files.filesets.delete = AsyncMock()
+            mock_fileset = MagicMock()
+            mock_fileset.name = "test-fileset-id"
+            mock_nmp_client.files.filesets.create.return_value = mock_fileset
+
+            # Create dispatcher with the test store
+            dispatcher = JobDispatcher(store=mock_store, sdk=mock_nmp_client)
+            yield dispatcher
+
+    @pytest.fixture
+    def test_client(self, dispatcher, mock_logs_client):
+        """Create a test client with real dispatcher and mocked logs client."""
+        app = FastAPI()
+        app.dependency_overrides[dep_dispatcher] = lambda: dispatcher
+        app.dependency_overrides[dep_job_logs_client] = lambda: mock_logs_client
+        app.include_router(router)
+        return TestClient(app)
+
+    async def test_get_job_logs_success(
+        self, test_client, dispatcher, mock_logs_client, sample_logs, sample_platform_job_request
+    ):
+        """Test successful retrieval of job logs."""
+        # Create a real job
+        job = await dispatcher.create_job(sample_platform_job_request, DEFAULT_WORKSPACE)
+
+        mock_logs_client.query_logs.return_value = PlatformJobLogPage(
+            data=sample_logs, total=3, next_page=None, prev_page=None
+        )
+
+        response = test_client.get(f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/{job.name}/logs")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert len(data["data"]) == 3
+        assert data["data"][0]["message"] == "Starting job execution"
+        assert data["data"][0]["job"] == "test-job"
+        assert data["data"][0]["job_step"] == "step1"
+        assert data["next_page"] is None
+        assert data["prev_page"] is None
+
+        mock_logs_client.query_logs.assert_called_once_with(
+            job.fileset,
+            workspace=DEFAULT_WORKSPACE,
+            filters={"job": job.name, "job_attempt": job.attempt_id},
+            page_size=100,
+            page_cursor=None,
+        )
+
+    async def test_get_job_logs_with_pagination_params(
+        self, test_client, dispatcher, mock_logs_client, sample_logs, sample_platform_job_request
+    ):
+        """Test job logs retrieval with pagination parameters."""
+        # Create a real job
+        job = await dispatcher.create_job(sample_platform_job_request, DEFAULT_WORKSPACE)
+
+        mock_logs_client.query_logs.return_value = PlatformJobLogPage(
+            data=sample_logs[:2],
+            total=3,
+            next_page="next_cursor_123",
+            prev_page=None,
+        )
+
+        response = test_client.get(
+            f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/{job.name}/logs?limit=2&page_cursor=some_cursor"
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert len(data["data"]) == 2
+        assert data["next_page"] == "next_cursor_123"
+        assert data["prev_page"] is None
+
+        mock_logs_client.query_logs.assert_called_once_with(
+            job.fileset,
+            workspace=DEFAULT_WORKSPACE,
+            filters={"job": job.name, "job_attempt": job.attempt_id},
+            page_size=2,
+            page_cursor="some_cursor",
+        )
+
+    async def test_get_job_logs_job_not_found(self, test_client, dispatcher, mock_logs_client):
+        """Test job logs retrieval when job doesn't exist."""
+        response = test_client.get(f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/nonexistent-job/logs")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Job not found"
+        mock_logs_client.query_logs.assert_not_called()
+
+    async def test_get_job_logs_invalid_page_cursor(
+        self, test_client, dispatcher, mock_logs_client, sample_platform_job_request
+    ):
+        """Test job logs retrieval with invalid page cursor."""
+        # Create a real job
+        job = await dispatcher.create_job(sample_platform_job_request, DEFAULT_WORKSPACE)
+
+        mock_logs_client.query_logs.side_effect = InvalidPageCursorError("Invalid page cursor")
+
+        response = test_client.get(
+            f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/{job.name}/logs?page_cursor=invalid_cursor"
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == "Invalid page cursor"
+
+    def test_get_job_logs_invalid_limit(self, test_client):
+        """Test job logs retrieval with invalid limit parameter."""
+        response = test_client.get(f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/test-job/logs?limit=0")
+
+        # Should get validation error before reaching our code
+        assert response.status_code == 422
+
+    async def test_get_job_logs_empty_logs(
+        self, test_client, dispatcher, mock_logs_client, sample_platform_job_request
+    ):
+        """Test job logs retrieval when no logs exist."""
+        # Create a real job
+        job = await dispatcher.create_job(sample_platform_job_request, DEFAULT_WORKSPACE)
+
+        mock_logs_client.query_logs.return_value = PlatformJobLogPage(data=[], total=0, next_page=None, prev_page=None)
+
+        response = test_client.get(f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/{job.name}/logs")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 0
+        assert len(data["data"]) == 0
+        assert data["next_page"] is None
+        assert data["prev_page"] is None
+
+    async def test_get_job_logs_large_limit(
+        self, test_client, dispatcher, mock_logs_client, sample_logs, sample_platform_job_request
+    ):
+        """Test job logs retrieval with a large limit parameter."""
+        # Create a real job
+        job = await dispatcher.create_job(sample_platform_job_request, DEFAULT_WORKSPACE)
+
+        mock_logs_client.query_logs.return_value = PlatformJobLogPage(
+            data=sample_logs,
+            total=len(sample_logs),
+            next_page=None,
+            prev_page=None,
+        )
+
+        response = test_client.get(f"/v2/workspaces/{DEFAULT_WORKSPACE}/jobs/{job.name}/logs?limit=1000")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert len(data["data"]) == 3
+        mock_logs_client.query_logs.assert_called_once()

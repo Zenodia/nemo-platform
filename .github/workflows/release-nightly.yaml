@@ -1,0 +1,44 @@
+name: "Release: Nightly"
+
+on:
+  schedule:
+    - cron: "0 20 * * *"
+      timezone: "America/Los_Angeles"
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Optional exact source commit SHA. Defaults to the repository default branch."
+        required: false
+        type: string
+        default: ""
+      release_scope:
+        description: "Release artifact scope."
+        required: false
+        type: choice
+        default: sdks
+        options:
+          - sdks
+          - custom
+      sdk_ids:
+        description: "Comma-separated SDK IDs for custom releases."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  release-bundle:
+    name: Produce release bundle
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-bundle.yaml
+    with:
+      cadence: nightly
+      source_sha: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || '' }}
+      release_scope: ${{ github.event_name == 'workflow_dispatch' && inputs.release_scope || 'sdks' }}
+      sdk_ids: ${{ github.event_name == 'workflow_dispatch' && inputs.sdk_ids || '' }}
+    secrets:
+      CI_DISPATCH_TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}
+      CI_DISPATCH_REPO: ${{ secrets.CI_DISPATCH_REPO }}

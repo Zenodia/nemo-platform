@@ -1,0 +1,308 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""CLIRenderer implementations for ``nemo data-designer`` verbs.
+
+The renderers wrap the existing ``data_designer.cli.ui`` helpers
+(``print_header``, ``print_success``, ``print_error``, ``wait_for_navigation_key``)
+so the Nemo CLI's preview / create UX stays consistent with the library's
+own ``data-designer preview`` / ``data-designer create`` commands —
+including the interactive per-record browser the library's
+``GenerationController`` ships.
+
+The interactive browser needs the original :class:`DataDesignerConfigBuilder`
+to construct :class:`PreviewResults`. The override wrappers in
+``cli/inputs.py`` stash the builder in a contextvar before invoking the
+original callback; this renderer reads it back via
+:func:`get_current_config_builder`. When the builder isn't available
+(e.g. a renderer instantiated outside the override path) the renderer
+falls back to a plain dataframe table.
+"""
+
+from __future__ import annotations
+
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+from data_designer.cli.ui import console, print_error, print_header, print_success, wait_for_navigation_key
+from data_designer.cli.utils.sample_records_pager import PAGER_FILENAME, create_sample_records_pager
+from data_designer.config.preview_results import PreviewResults
+from nemo_data_designer_plugin.cli.inputs import get_current_config_builder
+from nemo_data_designer_plugin.functions._types import (
+    AnalysisFrame,
+    DatasetFrame,
+    DatasetMetadataFrame,
+    LogFrame,
+    PreviewFrame,
+    ProcessorOutputFrame,
+)
+from nemo_platform_plugin.cli_renderer import CLIRenderer, RendererContext
+from nemo_platform_plugin.functions.frames import Done, Error, Heartbeat
+from pydantic import BaseModel, TypeAdapter
+
+_PREVIEW_FRAME_ADAPTER: TypeAdapter[PreviewFrame] = TypeAdapter(PreviewFrame)
+
+
+def _coerce_preview_frame(frame: Any) -> BaseModel | None:
+    """Turn a raw frame (BaseModel from local run, dict from HTTP) into a typed frame.
+
+    Returns ``None`` if the frame can't be parsed (unknown ``kind`` etc.) so
+    the renderer can silently skip it instead of raising.
+    """
+    if isinstance(frame, BaseModel):
+        return frame
+    if isinstance(frame, dict):
+        try:
+            return _PREVIEW_FRAME_ADAPTER.validate_python(frame)
+        except Exception:
+            return None
+    return None
+
+
+class PreviewRenderer(CLIRenderer):
+    """Renderer for ``nemo data-designer preview {run,submit}``.
+
+    Streams log frames as colored Rich output during execution; on completion
+    shows the dataset, analysis report, and a success summary. On error,
+    prints a single error line.
+    """
+
+    def __init__(self) -> None:
+        self._records: list[dict[str, Any]] = []
+        self._dataset_metadata: object | None = None
+        self._analysis: object | None = None
+        self._processor_outputs: dict[str, list[dict]] = {}
+        self._error_message: str | None = None
+        self._log_levels_seen: set[str] = set()
+
+    def on_start(self, *, ctx: RendererContext) -> None:
+        print_header("Data Designer Preview")
+
+    def on_frame(self, frame: Any, *, ctx: RendererContext) -> None:
+        typed = _coerce_preview_frame(frame)
+        if typed is None:
+            return
+        if isinstance(typed, LogFrame):
+            self._log_levels_seen.add(typed.level)
+            _print_log(typed)
+        elif isinstance(typed, DatasetFrame):
+            self._records.extend(typed.records)
+        elif isinstance(typed, DatasetMetadataFrame):
+            self._dataset_metadata = typed.metadata
+        elif isinstance(typed, AnalysisFrame):
+            self._analysis = typed.analysis
+        elif isinstance(typed, ProcessorOutputFrame):
+            self._processor_outputs[typed.processor_name] = typed.records
+        elif isinstance(typed, Error):
+            self._error_message = typed.message
+        elif isinstance(typed, (Heartbeat, Done)):
+            pass
+
+    def on_complete(self, *, ctx: RendererContext) -> None:
+        if self._error_message:
+            print_error(f"Preview failed: {self._error_message}")
+            return
+        if not self._records:
+            print_error("Preview completed without generating any records. Check the log lines above.")
+            return
+
+        df = pd.DataFrame(self._records).convert_dtypes(dtype_backend="pyarrow")
+        total = len(df)
+        results = self._build_preview_results(df)
+
+        console.print()
+        save_requested = bool(ctx.cli_kwargs.get("save_results"))
+        if save_requested and results is None:
+            print_error("--save-results requires a config builder; falling back to in-terminal output.")
+
+        if save_requested and results is not None:
+            self._save_results(results, df, total, ctx)
+        else:
+            self._render_to_terminal(results, df, total, ctx)
+
+        console.print()
+        self._print_final_status(total)
+
+    def _build_preview_results(self, df: pd.DataFrame) -> PreviewResults | None:
+        """Assemble a PreviewResults from the stashed builder, if available.
+
+        The override wrapper in ``cli/inputs.py`` stashes the builder so the
+        renderer can unlock the library's per-record HTML rendering via
+        ``display_sample_record(...)``. When the builder isn't available,
+        callers fall back to a plain dataframe table.
+        """
+        builder = get_current_config_builder()
+        if builder is None:
+            return None
+        try:
+            return PreviewResults(
+                config_builder=builder,
+                dataset=df,
+                dataset_metadata=self._dataset_metadata,  # type: ignore[arg-type]
+                analysis=self._analysis,  # type: ignore[arg-type]
+                processor_artifacts=self._processor_outputs or None,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            console.print(f"[yellow]Could not assemble PreviewResults: {exc}[/yellow]")
+            return None
+
+    def _render_to_terminal(
+        self,
+        results: PreviewResults | None,
+        df: pd.DataFrame,
+        total: int,
+        ctx: RendererContext,
+    ) -> None:
+        if results is not None and _can_browse_interactively(ctx, total):
+            self._browse_interactively(results, total)
+        else:
+            console.print(f"  [bold]{total} record(s) generated[/bold]")
+            console.print()
+            self._display_all_records(results, df, total)
+
+        analysis = self._analysis
+        if analysis is not None and hasattr(analysis, "to_report"):
+            try:
+                console.print()
+                analysis.to_report()  # type: ignore[attr-defined]
+            except Exception as exc:  # pragma: no cover - defensive
+                console.print(f"[yellow]Could not render analysis report: {exc}[/yellow]")
+
+    def _print_final_status(self, total: int) -> None:
+        if "error" in self._log_levels_seen:
+            print_error("Preview completed with errors. See the log lines above.")
+        elif "warning" in self._log_levels_seen or "warn" in self._log_levels_seen:
+            console.print("[yellow]⚠ Preview completed with warnings.[/yellow]")
+        else:
+            print_success(f"Preview complete — {total} record(s) generated")
+
+    def _save_results(
+        self,
+        results: PreviewResults,
+        df: pd.DataFrame,
+        total: int,
+        ctx: RendererContext,
+    ) -> None:
+        """Write preview artifacts to disk, mirroring upstream's --save-results layout."""
+        artifact_path_raw = ctx.cli_kwargs.get("artifact_path")
+        artifact_path = Path(artifact_path_raw) if artifact_path_raw else Path.cwd() / "artifacts"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_dir = artifact_path / f"preview_results_{timestamp}"
+        sample_records_dir = results_dir / "sample_records"
+        sample_records_dir.mkdir(parents=True, exist_ok=True)
+
+        df.to_parquet(results_dir / "dataset.parquet")
+
+        analysis = self._analysis
+        if analysis is not None and hasattr(analysis, "to_report"):
+            try:
+                analysis.to_report(save_path=results_dir / "report.html")  # type: ignore[attr-defined]
+            except Exception as exc:  # pragma: no cover - defensive
+                console.print(f"[yellow]Could not save analysis report: {exc}[/yellow]")
+
+        for i in range(total):
+            results.display_sample_record(
+                index=i,
+                save_path=sample_records_dir / f"record_{i}.html",
+            )
+        create_sample_records_pager(
+            sample_records_dir=sample_records_dir,
+            num_records=total,
+            num_columns=len(df.columns),
+        )
+
+        console.print(f"  [bold]Results path:[/bold] {results_dir}")
+        console.print(f"  [bold]Browser path:[/bold] {sample_records_dir / PAGER_FILENAME}")
+
+    @staticmethod
+    def _browse_interactively(results: PreviewResults, total: int) -> None:
+        """Per-record browser, mirroring data_designer.cli.controllers.GenerationController."""
+        current = 0
+        PreviewRenderer._show_record(results, current, total)
+        while True:
+            console.print()
+            action = wait_for_navigation_key()
+            if action == "q":
+                console.print("  [dim]Done browsing.[/dim]")
+                break
+            if action == "p":
+                current = (current - 1) % total
+            else:
+                current = (current + 1) % total
+            PreviewRenderer._show_record(results, current, total)
+
+    @staticmethod
+    def _show_record(results: PreviewResults, index: int, total: int) -> None:
+        console.print(f"  [bold]Record {index + 1} of {total}[/bold]")
+        results.display_sample_record(index=index)
+
+    @staticmethod
+    def _display_all_records(results: PreviewResults | None, df: pd.DataFrame, total: int) -> None:
+        if results is not None:
+            for i in range(total):
+                PreviewRenderer._show_record(results, i, total)
+        else:
+            console.print(df.to_string(index=False, max_cols=10))
+
+    def on_error(self, error: BaseException, *, ctx: RendererContext) -> None:
+        print_error(f"Preview failed: {error}")
+
+
+class CreateRenderer(CLIRenderer):
+    """Renderer for ``nemo data-designer create {run,submit}``.
+
+    Wraps the synchronous job result with header / success messaging. The
+    full result dict is still echoed at the end so users can copy job IDs
+    or other identifiers.
+    """
+
+    def on_start(self, *, ctx: RendererContext) -> None:
+        verb_label = "Create" if ctx.is_local else "Submit"
+        print_header(f"Data Designer {verb_label}")
+
+    def on_frame(self, frame: Any, *, ctx: RendererContext) -> None:
+        # Jobs are non-streaming; on_frame fires exactly once with the
+        # scheduler's result for run, or the submission response for submit.
+        # Print it directly so useful artifact paths stay visible.
+        console.print()
+        console.print(frame)
+
+    def on_complete(self, *, ctx: RendererContext) -> None:
+        console.print()
+        if ctx.is_local:
+            print_success("Create complete.")
+        else:
+            print_success("Create submitted.")
+
+    def on_error(self, error: BaseException, *, ctx: RendererContext) -> None:
+        print_error(f"Create failed: {error}")
+
+
+def _print_log(frame: LogFrame) -> None:
+    """Print a LogFrame to the console with level-appropriate coloring."""
+    level = frame.level
+    if level == "error":
+        prefix = "[red][error][/red]"
+    elif level in ("warning", "warn"):
+        prefix = "[yellow][warn][/yellow]"
+    elif level == "info":
+        prefix = "[cyan][info][/cyan]"
+    else:
+        prefix = "[dim][debug][/dim]"
+    console.print(f"{prefix} {frame.message}")
+
+
+def _can_browse_interactively(ctx: RendererContext, total: int) -> bool:
+    """Mirror the upstream library's TTY-and-multi-record gate.
+
+    Honors a ``--non-interactive`` flag if the override wrapper exposed one,
+    falling back to TTY checks otherwise.
+    """
+    if total <= 1:
+        return False
+    if ctx.cli_kwargs.get("non_interactive"):
+        return False
+    return sys.stdin.isatty() and sys.stdout.isatty()

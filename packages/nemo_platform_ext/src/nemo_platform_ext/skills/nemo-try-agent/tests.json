@@ -1,0 +1,65 @@
+{
+  "skill": "nemo-try-agent",
+  "tests": [
+    {
+      "type": "explicit",
+      "prompt": "Use nemo-try-agent to ask my deployed agent about VPN access.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "explicit",
+      "prompt": "Run nemo-try-agent and send this question to the support-triage agent.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "explicit",
+      "prompt": "Invoke nemo-try-agent for the it-helpdesk deployment.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "implicit",
+      "prompt": "Ask my NeMo agent how to reset a Jira password.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "implicit",
+      "prompt": "Test the support agent with a real question about laptop refresh.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "implicit",
+      "prompt": "Send a sample query to the agent I just deployed.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "contextual",
+      "prompt": "I have the it-helpdesk agent deployed and want to test it with a real question. Also curious how it handles a question outside its categories.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "contextual",
+      "prompt": "Deployment finished a minute ago. Hit it with three categories of questions and show me the raw output.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "contextual",
+      "prompt": "Want to see what the support-triage agent says before the team review at 2pm. Three test prompts is enough.",
+      "expected_skill": "nemo-try-agent"
+    },
+    {
+      "type": "negative-control",
+      "prompt": "What is the weather in San Francisco today?",
+      "expected_skill_not": "nemo-try-agent"
+    },
+    {
+      "type": "negative-control",
+      "prompt": "Send a Slack message to my manager asking about the staffing plan.",
+      "expected_skill_not": "nemo-try-agent"
+    },
+    {
+      "type": "negative-control",
+      "prompt": "Ask ChatGPT to write a poem about coffee.",
+      "expected_skill_not": "nemo-try-agent"
+    }
+  ]
+}

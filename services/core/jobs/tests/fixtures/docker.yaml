@@ -1,0 +1,19 @@
+platform:
+  base_url: "http://gateway:8000"
+  runtime: "docker"
+  # GPU pool uses "all" detected GPUs by default.
+  # To use specific GPUs, set to a comma-separated list:
+  # docker:
+  #   reserved_gpu_device_ids: "0,1,2,3"
+
+service:
+  log_level: "INFO"
+  log_format: "plain"
+  host: "0.0.0.0"
+  port: 8000
+
+jobs:
+  executor_defaults:
+    docker:
+      storage:
+        volume_name: nemo-platform_jobs_storage

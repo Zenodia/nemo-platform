@@ -1,0 +1,12 @@
+{
+    "customizer/charts/mlflow/values.yaml": {
+      "Password": [
+        "pas**************low\""
+      ]
+    },
+    "customizer/examples/local/mlflow.values.yaml": {
+        "Password": [
+          "pas**************low\""
+        ]
+      }
+}

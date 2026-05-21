@@ -1,0 +1,43 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { PageHeader, Stack, TabsList, TabsRoot, TabsTrigger } from '@nvidia/foundations-react-core';
+import { useWorkspaceFromPath } from '@studio/hooks/useWorkspaceFromPath';
+import { getSafeSynthesizerJobRoute, getSafeSynthesizerJobReportRoute } from '@studio/routes/utils';
+import { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+interface SafeSynthesizerNavigationProps {
+  selected: 'summary' | 'report';
+  jobName: string;
+}
+
+export const SafeSynthesizerNavigation: FC<SafeSynthesizerNavigationProps> = ({
+  selected,
+  jobName,
+}) => {
+  const workspace = useWorkspaceFromPath();
+  const navigate = useNavigate();
+
+  return (
+    <Stack gap="density-2xl">
+      <PageHeader slotHeading="Safe Synthesizer Job" />
+      <TabsRoot value={selected}>
+        <TabsList>
+          <TabsTrigger
+            value="summary"
+            onClick={() => navigate(getSafeSynthesizerJobRoute(workspace, jobName))}
+          >
+            Summary
+          </TabsTrigger>
+          <TabsTrigger
+            value="report"
+            onClick={() => navigate(getSafeSynthesizerJobReportRoute(workspace, jobName))}
+          >
+            Report
+          </TabsTrigger>
+        </TabsList>
+      </TabsRoot>
+    </Stack>
+  );
+};

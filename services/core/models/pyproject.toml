@@ -1,0 +1,61 @@
+[project]
+name = "nmp-models"
+version = "0.1.0"
+description = "NeMo Platform Models provides model configuration, scaling, and deployment capabilities."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    # API server dependencies (for nmp-api/nmp-core containers)
+    "fastapi>=0.115.8",
+    "pydantic>=2.10.6",
+    "uvicorn>=0.34.0",
+    "pydantic-settings>=2.8.1",
+    "sqlmodel>=0.0.22",
+    "pyyaml>=6.0.2",
+    "kubernetes>=31.0.0",
+    "urllib3>=2.7.0",
+    "nmp-common",
+    "docker>=7.1.0",
+    "tenacity>=8.5.0",  # Retry logic for Docker backend operations
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nmp"]
+
+[dependency-groups]
+# No task deps for models — `nmp.core.models.parallelism` is the only consumer of
+# torch/transformers/accelerate, and it's only invoked from the `model_spec` batch
+# task. That task runs in the `customizer-tasks` image, which installs torch
+# itself; parallelism tests in this repo guard with `pytest.importorskip("torch")`.
+
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.3",
+    "aiosqlite>=0.20.0",
+    "ruff>=0.11.8",
+    "ty>=0.0.1a14",
+    "types-docker>=7.1.0",
+    "pytest-xdist>=3.8.0",
+    "datamodel-code-generator>=0.35.0",
+    "openai>=1.0.0",  # For e2e testing of sdk.models helper methods
+    "models",  # For e2e testing of sdk.models helper methods
+]
+
+# Pytest configuration inherited from root pytest.ini
+# (No [tool.pytest.ini_options] section - pytest discovers root config)
+
+[tool.uv.sources]
+nmp-common = { workspace = true }
+models = { workspace = true }

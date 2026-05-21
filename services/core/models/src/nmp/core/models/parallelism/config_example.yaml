@@ -1,0 +1,139 @@
+# Example configuration for parallelism estimation heuristics
+# This structure can be embedded in Helm values.yaml to tune behavior without code changes
+
+parallelism:
+  # Model size thresholds for categorizing models
+  model_size_thresholds:
+    very_large: 300.0  # >300B: Very large models
+    large: 100.0       # 100-300B: Large models
+    medium: 50.0       # 50-100B: Medium models
+    small_tp: 70.0     # <70B: Small models for TP cost
+    small_moe: 40.0    # <40B: Small MoE models
+
+  # Memory pressure configuration
+  memory:
+    # Memory pressure thresholds (0.0-1.0)
+    pressure_threshold: 0.60  # Start penalizing above 60% memory usage
+    pressure_moderate: 0.50   # Moderate memory pressure
+    pressure_low: 0.45        # Low memory pressure
+
+    # Memory pressure penalty configuration
+    base_penalty: 1000000000  # 1e9 - Base penalty for exceeding threshold
+    scale_divisor: 0.1        # Divisor for quadratic penalty: (excess / divisor) ** 2
+
+    # PP memory discount
+    pp_discount_max: 0.7   # Maximum discount factor (70% off)
+    pp_discount_scale: 2.0 # Scale factor for discount calculation
+
+  # Tensor Parallelism (TP) configuration
+  tensor_parallelism:
+    # Base TP cost multipliers by model size
+    base_cost_very_large_model: 50.0   # For models > 300B
+    base_cost_standard_model: 100.0    # For models <= 300B
+
+    # TP excessive thresholds by model size
+    excessive_very_large: 8  # TP=8 is standard for 340B+
+    excessive_standard: 4    # TP=4 is standard for 70B and below
+
+    # TP penalty multipliers
+    penalty_large_model: 100000000   # 1e8 - Penalty for excessive TP on large models (>70B)
+    penalty_small_model: 300000000   # 3e8 - Penalty for excessive TP on small models (<70B)
+
+  # Data Parallelism (DP) configuration
+  data_parallelism:
+    # DP bonuses by total parallelism (negative = bonus)
+    bonus_minimal: -10000           # -1e4 - total_parallelism >= 64
+    bonus_small: -50000             # -5e4 - total_parallelism >= 32
+    bonus_very_strong: -50000000    # -5e7 - total_parallelism <= 2
+    bonus_strong: -30000000         # -3e7 - total_parallelism <= 4
+    bonus_moderate: -15000000       # -1.5e7 - total_parallelism <= 8
+    bonus_medium: -20000000         # -2e7 - total_parallelism > 8
+    bonus_small_moe: -1000000       # -1e6 - Smaller MoE models
+
+    # Total parallelism thresholds
+    total_parallelism_very_high: 64
+    total_parallelism_high: 32
+    total_parallelism_very_low: 2
+    total_parallelism_low: 4
+    total_parallelism_medium: 8
+
+    # CP bonus multiplier
+    cp_bonus_multiplier: 2.0  # Double DP bonus for pure DP+CP configurations
+
+  # Pipeline Parallelism (PP) configuration
+  pipeline_parallelism:
+    # PP cost multipliers by model type
+    cost_moe: 500000              # 5e5 - MoE models (lower cost due to higher compute per stage)
+    cost_very_large_model: 5000000    # 5e6 - param_count_b > 300
+    cost_large_model: 10000000        # 1e7 - param_count_b > 100
+    cost_medium_model: 30000000       # 3e7 - param_count_b > 50
+    cost_small_with_tp: 100000000     # 1e8 - param_count_b <= 50 and tp > 1
+    cost_small_without_tp: 300000000  # 3e8 - param_count_b <= 50 and tp == 1
+
+  # Context Parallelism (CP) configuration
+  context_parallelism:
+    # CP penalties and bonuses
+    bonus_optimal: -300000000      # -3e8 - Strong bonus for optimal CP
+    bonus_good: -200000000         # -2e8 - Bonus for CP=2 in medium sequences
+    penalty_suboptimal: 200000000  # 2e8 - Penalty: not using enough CP or using CP when not needed
+    penalty_too_much: 100000000    # 1e8 - Penalty: too much CP
+    penalty_should_use: 300000000  # 3e8 - Penalty: should use CP but using CP=1
+
+    # Sequence-to-parameter ratio thresholds
+    seq_to_param_ratio_high: 1.0    # Very long sequences
+    seq_to_param_ratio_medium: 0.3  # Medium sequences
+
+    # CP calculation constants
+    max_value: 8           # Maximum CP value to consider
+    optimal_value: 2       # CP=2 is optimal for medium sequences
+    param_memory_multiplier: 6.0   # Multiplier for parameter memory calculation
+    param_layers_multiplier: 12.0  # Multiplier for layers in parameter calculation
+    seq_memory_multiplier: 38.0    # Multiplier for sequence memory calculation
+
+    # CP candidate generation thresholds (sequence length in tokens)
+    seq_threshold_enable: 8192   # Enable CP for sequences >= 8K
+    seq_threshold_cp4: 16384     # Enable CP=4 for sequences >= 16K
+    seq_threshold_cp8: 32768     # Enable CP=8 for sequences >= 32K
+    seq_threshold_cp16: 131072   # Enable CP=16 for sequences >= 128K
+
+  # Expert Parallelism (EP) configuration
+  expert_parallelism:
+    # EP penalties and bonuses
+    penalty_non_moe: 1000000000     # 1e9 - Huge penalty for EP > 1 on non-MoE models
+    bonus_perfect: -500000000       # -5e8 - Perfect: 1 routed expert per GPU
+    bonus_very_efficient: -400000000  # -4e8 - Very efficient: <= 8 experts per GPU
+    bonus_good: -300000000          # -3e8 - Good: <= 32 experts per GPU
+    bonus_acceptable: -200000000    # -2e8 - Acceptable: <= 64 experts per GPU
+    bonus_high_count: -100000000    # -1e8 - High expert count per GPU (>64)
+    penalty_no_sharding: 800000000  # 8e8 - Huge penalty: no EP on MoE
+    penalty_non_divisor: 300000000  # 3e8 - Penalty for non-divisor EP
+
+    # Experts per GPU thresholds
+    experts_per_gpu_very_efficient: 8
+    experts_per_gpu_good: 32
+    experts_per_gpu_acceptable: 64
+
+  # Balance bonus configuration
+  balance:
+    # Balance ratio thresholds
+    ratio_perfect: 1.0  # TP == PP (perfect balance)
+    ratio_good: 2.0     # max(TP, PP) / min(TP, PP) <= 2.0
+
+    # Balance bonuses by model size
+    bonus_perfect_very_large: -500000000  # -5e8 - Perfect balance for very large dense models (>300B)
+    bonus_good_very_large: -300000000     # -3e8 - Good balance for very large dense models
+    bonus_perfect_large: -400000000       # -4e8 - Perfect balance for large models (>100B)
+    bonus_good_large: -200000000          # -2e8 - Good balance for large models
+    bonus_perfect_small: -300000000       # -3e8 - Perfect balance for smaller models
+    bonus_good_small: -100000000          # -1e8 - Good balance for smaller models
+    bonus_strong_moe: -500000000          # -5e8 - Very large MoE with tight memory
+    tp_squared_multiplier: 5000000        # 5e6 - Quadratic TP penalty factor
+
+    # Balance thresholds
+    pp_significant_threshold: 4   # PP >= 4 is significant
+    ep_significant_threshold: 4   # EP >= 4 is significant
+
+  # Hardware topology (top-level)
+  gpus_per_node_default: 8  # Standard node configuration (e.g., DGX H100)
+  gpu_memory_gb_default: 80  # Standard GPU memory in GB (e.g., H100 80GB)
+

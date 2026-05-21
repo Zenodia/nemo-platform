@@ -1,0 +1,122 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Domain model for Intake trace spans."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+from typing import Any, Self
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class SpanKind(StrEnum):
+    LLM = "LLM"
+    CHAIN = "CHAIN"
+    TOOL = "TOOL"
+    RETRIEVER = "RETRIEVER"
+    EMBEDDING = "EMBEDDING"
+    AGENT = "AGENT"
+    RERANKER = "RERANKER"
+    EVALUATOR = "EVALUATOR"
+    GUARDRAIL = "GUARDRAIL"
+    UNKNOWN = "UNKNOWN"
+
+
+class SpanStatus(StrEnum):
+    SUCCESS = "success"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+    UNKNOWN = "unknown"
+
+
+class SpanAttributeFilter(BaseModel):
+    field: str
+    operator: str
+    value: Any
+
+
+class IntakeSpan(BaseModel):
+    workspace: str
+    session_id: str
+    trace_id: str
+    source_format: str
+    external_span_id: str
+    start_time: datetime
+    event_ts: datetime
+    id: int | None = Field(default=None, ge=0, le=(1 << 64) - 1)
+    external_parent_span_id: str = ""
+    parent_id: int | None = None
+    kind: SpanKind = SpanKind.UNKNOWN
+    name: str = ""
+    status: SpanStatus = SpanStatus.UNKNOWN
+    end_time: datetime | None = None
+    attributes_string: dict[str, str] = Field(default_factory=dict)
+    attributes_number: dict[str, float] = Field(default_factory=dict)
+    attributes_bool: dict[str, bool] = Field(default_factory=dict)
+    input: str = ""
+    output: str = ""
+    is_deleted: int = Field(default=0, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_parent(self) -> Self:
+        if not self.external_span_id:
+            raise ValueError("external_span_id must not be empty")
+        if self.external_parent_span_id == self.external_span_id:
+            raise ValueError("external_parent_span_id must differ from external_span_id")
+        return self
+
+
+class SpanListFilter(BaseModel):
+    workspace: str
+    session_id: str | None = None
+    trace_id: str | None = None
+    external_parent_span_id: str | None = None
+    source_format: str | None = None
+    kind: SpanKind | None = None
+    status: SpanStatus | None = None
+    started_at_gte: datetime | None = None
+    started_at_lte: datetime | None = None
+    attribute_filters: list[SpanAttributeFilter] = Field(default_factory=list)
+
+
+class EvaluatorResultDataType(StrEnum):
+    NUMERIC = "NUMERIC"
+    CATEGORICAL = "CATEGORICAL"
+    BOOLEAN = "BOOLEAN"
+    TEXT = "TEXT"
+
+
+class EvaluatorResult(BaseModel):
+    evaluator_result_id: str
+    span_id: str
+    session_id: str
+    workspace: str
+    name: str
+    value: float | None = None
+    string_value: str | None = None
+    data_type: EvaluatorResultDataType
+    comment: str | None = None
+    created_by: str | None = None
+    created_at: datetime
+    ingested_at: datetime
+
+
+class EvaluatorResultListFilter(BaseModel):
+    workspace: str
+    span_id: str | None = None
+    session_id: str | None = None
+    name: str | None = None
+    data_type: EvaluatorResultDataType | None = None
+    created_by: str | None = None
+    value_gte: float | None = None
+    value_lte: float | None = None
+    created_at_gte: datetime | None = None
+    created_at_lte: datetime | None = None
+
+
+class TraceBatch(BaseModel):
+    spans: list[IntakeSpan] = Field(default_factory=list)
+    evaluator_results: list[EvaluatorResult] = Field(default_factory=list)

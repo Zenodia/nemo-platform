@@ -1,0 +1,7 @@
+guardrails:
+  models:
+    fake-model:
+      refusal_text: "I'm sorry, I can't respond to that"
+      config_ids:
+      - default/nemoguard
+    # add more models below

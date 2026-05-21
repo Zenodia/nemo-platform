@@ -1,0 +1,60 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { FormField, TextInput } from '@nvidia/foundations-react-core';
+import { handleFormErrorsGeneric } from '@studio/util/forms/error';
+import { Search } from 'lucide-react';
+import { ComponentProps } from 'react';
+import { useForm } from 'react-hook-form';
+
+interface FormValues {
+  searchString: string;
+}
+
+interface Props extends Omit<ComponentProps<typeof TextInput>, 'onSubmit' | 'label'> {
+  formClassName?: string;
+  onSubmit?: (searchValue: string) => void;
+  resetOnSubmit?: boolean;
+  label?: string;
+}
+
+/**
+ * A form wrapped text input for handling search submissions.
+ */
+export const SearchBar = ({
+  formClassName,
+  resetOnSubmit,
+  onSubmit,
+  label,
+  ...inputProps
+}: Props) => {
+  const { register, handleSubmit, setValue } = useForm<FormValues>({
+    defaultValues: { searchString: inputProps.defaultValue ?? '' },
+  });
+
+  const handleOnSubmit = (formData: FormValues) => {
+    onSubmit?.(formData.searchString);
+    if (resetOnSubmit) {
+      setValue('searchString', '');
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit(
+        handleOnSubmit,
+        handleFormErrorsGeneric({ title: 'Search Bar Form Errors' })
+      )}
+      className={`w-full${formClassName ? ` ${formClassName}` : ''}`}
+    >
+      <FormField slotLabel={label}>
+        <TextInput
+          slotStart={<Search />}
+          {...register('searchString')}
+          {...inputProps}
+          size="small"
+        />
+      </FormField>
+    </form>
+  );
+};

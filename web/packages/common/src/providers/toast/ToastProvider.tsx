@@ -1,0 +1,170 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Toast } from '@nvidia/foundations-react-core';
+import {
+  FC,
+  PropsWithChildren,
+  SyntheticEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import { DEFAULT_TOAST_DISMISS_MS, TOAST_DEQUEUE_MS, TOAST_ENQUEUE_MS } from './constants';
+import { getTransformStyles } from './GetTransformStyles';
+import { AddToastFn, ToastContextValue, ToastDescriptor } from './types';
+import { ToastContext } from './useToast';
+
+export const ToastProvider: FC<PropsWithChildren> = ({ children }) => {
+  const [toasts, setToasts] = useState<ToastDescriptor[]>([]);
+  const timeoutRefs = useRef<Record<string, NodeJS.Timeout>>({});
+
+  // Cleanup all timeouts when component unmounts to prevent state updates after unmount
+  useEffect(() => {
+    return () => {
+      // Clear all pending timeouts to prevent state updates after unmount
+      Object.values(timeoutRefs.current).forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      timeoutRefs.current = {};
+    };
+  }, []);
+
+  const stopToastClickPropagation = useCallback((e: SyntheticEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    // Clear any existing timeouts for this toast
+    if (timeoutRefs.current[id]) {
+      clearTimeout(timeoutRefs.current[id]);
+      delete timeoutRefs.current[id];
+    }
+    const dismissKey = `dismiss-${id}`;
+    if (timeoutRefs.current[dismissKey]) {
+      clearTimeout(timeoutRefs.current[dismissKey]);
+      delete timeoutRefs.current[dismissKey];
+    }
+
+    setToasts((prevToasts) =>
+      prevToasts.map((toast) => (toast.id === id ? { ...toast, isVisible: false } : toast))
+    );
+
+    // Use a new timeout for removal
+    timeoutRefs.current[id] = setTimeout(() => {
+      setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
+      delete timeoutRefs.current[id];
+    }, TOAST_DEQUEUE_MS);
+  }, []);
+
+  const addToast: AddToastFn = useCallback(
+    (message, options) => {
+      const { durationMs: rawDurationMs, status } = options;
+      const durationMs = rawDurationMs === false ? undefined : rawDurationMs;
+      const newToastId = `toast-${crypto.randomUUID()}`;
+
+      setToasts((prevToasts) => [
+        ...prevToasts,
+        {
+          id: newToastId,
+          message,
+          status,
+          isVisible: false,
+        },
+      ]);
+
+      // Use a single timeout for visibility and auto-dismiss
+      timeoutRefs.current[newToastId] = setTimeout(() => {
+        setToasts((prevToasts) =>
+          prevToasts.map((toast) =>
+            toast.id === newToastId ? { ...toast, isVisible: true } : toast
+          )
+        );
+
+        if (durationMs) {
+          timeoutRefs.current[`dismiss-${newToastId}`] = setTimeout(() => {
+            removeToast(newToastId);
+          }, durationMs);
+        }
+      }, TOAST_ENQUEUE_MS);
+
+      return newToastId;
+    },
+    [removeToast]
+  );
+
+  const contextValue: ToastContextValue = useMemo(
+    () => ({
+      addToast,
+      dismissToast: removeToast,
+      toast: {
+        success: (message, options) =>
+          addToast(message, {
+            status: 'success',
+            durationMs: DEFAULT_TOAST_DISMISS_MS,
+            ...options,
+          }),
+        error: (message, options) =>
+          addToast(message, { status: 'error', durationMs: DEFAULT_TOAST_DISMISS_MS, ...options }),
+        info: (message, options) =>
+          addToast(message, { status: 'info', durationMs: DEFAULT_TOAST_DISMISS_MS, ...options }),
+        warning: (message, options) =>
+          addToast(message, {
+            status: 'warning',
+            durationMs: DEFAULT_TOAST_DISMISS_MS,
+            ...options,
+          }),
+        working: (message, options) => addToast(message, { status: 'working', ...options }),
+        workingWithId: (message, options) => addToast(message, { status: 'working', ...options }),
+        neutral: (message, options) =>
+          addToast(message, { durationMs: DEFAULT_TOAST_DISMISS_MS, ...options }),
+        dismissToast: removeToast,
+      },
+    }),
+    [addToast, removeToast]
+  );
+
+  return (
+    <ToastContext.Provider value={contextValue}>
+      {children}
+      <div className="fixed top-[calc(var(--nv-app-bar-height)+1rem)] right-4 flex flex-col items-end gap-4 z-1100 max-w-md">
+        {toasts.map((toast) => (
+          <Toast
+            key={toast.id}
+            status={toast.status}
+            onClick={stopToastClickPropagation}
+            onPointerDown={stopToastClickPropagation}
+            onClose={() => removeToast(toast.id)}
+            role="alert"
+            className={`transition-all duration-300 ${
+              !toast.isVisible ? 'opacity-0' : 'opacity-100'
+            }`}
+            attributes={{
+              ToastContent: {
+                style: { whiteSpace: 'normal', overflow: 'visible' },
+              },
+              ToastText: {
+                style: {
+                  whiteSpace: 'normal',
+                  overflow: 'visible',
+                  textOverflow: 'clip',
+                  wordBreak: 'break-word',
+                },
+              },
+            }}
+            /* eslint-disable-next-line no-restricted-syntax */
+            style={{
+              transform: getTransformStyles({ isVisible: toast.isVisible }),
+              height: 'auto',
+            }}
+          >
+            {toast.message}
+          </Toast>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+};

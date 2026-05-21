@@ -1,0 +1,133 @@
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.15.7
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [--fix]
+        exclude: "sdk/python|.*\\.ipynb$"
+      # Run the formatter.
+      - id: ruff-format
+        exclude: "sdk/python"
+  - repo: local
+    hooks:
+      - id: ty
+        name: Run ty typechecks
+        entry: bash tools/lint/run-ty-check.sh
+        language: system
+        pass_filenames: false
+        types: [python]
+  - repo: local
+    hooks:
+      - id: openapi-generator
+        # Generate openapi spec for platform
+        name: Generate NeMo Platform OpenAPI Specification
+        language: system
+        entry: bash script/generate-openapi-spec.sh
+        pass_filenames: false
+        # The list below does necessarily need to be comprehensive.
+        # The more comprehensive the list, the lower the likelihood of pushing changes without OpenAPI spec updates,
+        # which results in failed CI pipelines.
+        files: |
+          (?x)^(
+              # NMP Common schemas
+              packages/nmp_common/src/nmp_common/datamodel/.*|
+              packages/nmp_common/src/nmp_common/api/.*|
+
+              # Individual microservices
+              services/customizer/src/customizer/api/v1/.*|
+              services/evaluator/src/evaluator/api/.*|
+              services/guardrails/src/guardrails/api/.*|
+              services/core/infrastructure/jobs/src/jobs/api/.*|
+
+              # First-party plugins — each plugin's spec lands in plugins/<dir>/openapi/openapi.yaml.
+              # pyproject.toml is included because [tool.nemo.openapi] there controls opt-in.
+              plugins/[^/]+/src/.*|
+              plugins/[^/]+/pyproject\.toml|
+          )$
+
+        stages: [manual]
+
+  - repo: local
+    hooks:
+      - id: config-reference-docs
+        name: Check config reference doc is up to date
+        entry: bash -c 'uv run generate-config-docs && git diff --exit-code docs/set-up/config-reference.md'
+        language: system
+        pass_filenames: false
+        files: |
+          (?x)^(
+            script/generate_config_docs\.py|
+            packages/nmp_common/.*|
+            services/.*/src/.*/config\.py|
+            docs/set-up/config-reference\.md
+          )$
+
+  - repo: https://github.com/norwoodj/helm-docs
+    # The container itself is 'latest' no matter what here
+    rev: "v1.14.2"
+    hooks:
+      - id: helm-docs-container
+        files: '^deploy\/helm\/platform\/values.yaml$'
+        args:
+          - --chart-search-root=deploy/helm/platform/
+          - --template-files=deploy/helm/platform/helm-docs-template/nemo-helm-readme.md.gotmpl
+
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: Run uv lock
+        entry: uv lock
+        language: system
+        files: 'pyproject\.toml$'
+        pass_filenames: false
+        verbose: true
+      - id: uv-lock-check
+        name: Check for uv.lock drift
+        entry: git diff --exit-code uv.lock
+        language: system
+        files: 'pyproject\.toml$'
+        pass_filenames: false
+        verbose: true
+      - id: copyright-fix
+        name: Fix copyright headers
+        entry: uv run script/copyright_fixer.py
+        language: system
+        pass_filenames: true
+        files: '\.(py|ts)$'
+      - id: check-signoff
+        name: Check commit is signed off (DCO)
+        entry: "grep -qE '^Signed-off-by: .+ <.+>'"
+        language: system
+        stages: [commit-msg]
+        always_run: true
+
+  # Studio
+  - repo: local
+    hooks:
+      - id: studio-lint-staged
+        name: Run UI lint-staged
+        entry: bash -c '[ -n "$CI" ] && exit 0; command -v pnpm >/dev/null 2>&1 || { echo "pnpm not installed, skipping lint-staged (see web/README.md for setup)"; exit 0; }; cd web && pnpm lint-staged'
+        language: system
+        files: ^web/
+        pass_filenames: false
+        stages: [pre-commit]
+  - repo: local
+    hooks:
+      - id: studio-typecheck
+        name: Run UI typecheck
+        entry: bash -c '[ -n "$CI" ] && exit 0; command -v pnpm >/dev/null 2>&1 || { echo "pnpm not installed, skipping typecheck (see web/README.md for setup)"; exit 0; }; cd web && pnpm --filter="...[origin/main]" run --parallel --if-present typecheck:go'
+        language: system
+        files: ^web/
+        pass_filenames: false
+        stages: [pre-push]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+        args:
+          - --assume-in-merge

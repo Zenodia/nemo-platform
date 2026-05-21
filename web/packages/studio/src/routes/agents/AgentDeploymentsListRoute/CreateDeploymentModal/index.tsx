@@ -1,0 +1,158 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ControlledSelect } from '@nemo/common/src/components/form/ControlledSelect';
+import { ControlledTextInput } from '@nemo/common/src/components/form/ControlledTextInput';
+import { FormModal, type FormModalProps } from '@nemo/common/src/components/FormModal';
+import { useToast } from '@nemo/common/src/providers/toast/useToast';
+import {
+  getAgentsListDeploymentsQueryKey,
+  useAgentsCreateDeployment,
+  useAgentsListAgents,
+} from '@nemo/sdk/generated/agents/api';
+import { Stack } from '@nvidia/foundations-react-core';
+import { useQueryClient } from '@tanstack/react-query';
+import { type FC, useEffect } from 'react';
+import { type SubmitHandler, useForm } from 'react-hook-form';
+import { z } from 'zod';
+
+const deploymentFormSchema = z.object({
+  name: z.string().optional(),
+  agent: z.string().min(1, 'Agent is required'),
+});
+
+type DeploymentFormData = z.infer<typeof deploymentFormSchema>;
+
+const makeDefaultValues = (agent?: string): DeploymentFormData => ({
+  name: '',
+  agent: agent ?? '',
+});
+
+interface CreateDeploymentModalProps extends Pick<FormModalProps, 'open' | 'onClose'> {
+  /** When provided, pre-selects this agent and hides the agent dropdown. */
+  agent?: string;
+  /** Override the workspace inferred from the current path. */
+  workspace: string;
+}
+
+export const CreateDeploymentModal: FC<CreateDeploymentModalProps> = ({
+  open,
+  onClose,
+  agent: agentProp,
+  workspace,
+}) => {
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: agentsResponse, isLoading: isAgentsLoading } = useAgentsListAgents(
+    workspace,
+    undefined,
+    { query: { enabled: open && !agentProp } }
+  );
+  const agents = agentsResponse?.data ?? [];
+
+  const {
+    mutateAsync: createDeploymentMutation,
+    error: createError,
+    isPending,
+    reset: resetMutation,
+  } = useAgentsCreateDeployment({
+    mutation: {
+      onSuccess: () => {
+        toast.success('Deployment started successfully');
+        void queryClient.invalidateQueries({
+          queryKey: getAgentsListDeploymentsQueryKey(workspace),
+        });
+        resetAndClose();
+      },
+    },
+  });
+
+  const createDeployment = (data: DeploymentFormData) =>
+    createDeploymentMutation({
+      workspace,
+      data: {
+        agent: data.agent,
+        ...(data.name ? { name: data.name } : {}),
+      },
+    });
+
+  const {
+    control,
+    reset: resetForm,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(deploymentFormSchema),
+    defaultValues: makeDefaultValues(agentProp),
+    disabled: isPending,
+    mode: 'onChange',
+  });
+
+  useEffect(() => {
+    resetForm(makeDefaultValues(agentProp));
+  }, [agentProp, resetForm]);
+
+  const reset = () => {
+    resetMutation();
+    resetForm(makeDefaultValues(agentProp));
+  };
+
+  const resetAndClose = () => {
+    reset();
+    onClose();
+  };
+
+  const onSubmit: SubmitHandler<DeploymentFormData> = async (formData) => {
+    try {
+      await createDeployment(formData);
+    } catch {
+      // Error displayed via errorText prop
+    }
+  };
+
+  const errorMessage =
+    createError instanceof Error
+      ? createError.message
+      : createError
+        ? 'An error occurred'
+        : undefined;
+
+  return (
+    <FormModal
+      open={open}
+      onClose={resetAndClose}
+      title="Deploy Agent"
+      submitButtonText="Deploy"
+      onSubmit={handleSubmit(onSubmit)}
+      disabled={isPending}
+      loading={isPending}
+      errorText={errorMessage}
+    >
+      <Stack gap="density-xl">
+        <ControlledTextInput
+          useControllerProps={{ control, name: 'name' }}
+          name="name"
+          label="Deployment Name (optional)"
+          formFieldProps={{
+            slotError: errors.name?.message,
+          }}
+        />
+        {!agentProp && (
+          <ControlledSelect
+            useControllerProps={{ control, name: 'agent' }}
+            loading={isAgentsLoading}
+            items={agents.flatMap((agent) =>
+              agent.name ? [{ value: agent.name, children: agent.name }] : []
+            )}
+            formFieldProps={{
+              slotLabel: 'Agent',
+              slotError: errors.agent?.message,
+            }}
+          />
+        )}
+      </Stack>
+    </FormModal>
+  );
+};

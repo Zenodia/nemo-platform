@@ -1,0 +1,8 @@
+services:
+  # immediately exit so we can use the local `uv run`
+  nmp-core:
+    entrypoint: ["python", "-c", "print('exiting for local dev')"]
+
+  postgres:
+    ports:
+      - "5432:5432"

@@ -1,0 +1,59 @@
+apiVersion: apps.nvidia.com/v1alpha1
+kind: NIMService
+metadata:
+  name: modeldeployment-ben-test-llama-3-2-3b-instruct-deployment
+  namespace: aire-cicd
+spec:
+  authSecret: ngc-api
+  env:
+  - name: NIM_GUIDED_DECODING_BACKEND
+    value: fast_outlines
+  - name: NIM_SERVED_MODEL_NAME
+    value: ben-test/llama-3.2-3b-instruct
+  - name: NIM_MODEL_NAME
+    value: meta/llama-3.2-3b-instruct
+  - name: NIM_PEFT_SOURCE
+    value: http://nemo-entity-store:8000
+  - name: NIM_PEFT_REFRESH_INTERVAL
+    value: "30"
+  expose:
+    ingress:
+      spec: {}
+    service:
+      port: 8000
+      type: ClusterIP
+  image:
+    pullPolicy: IfNotPresent
+    pullSecrets:
+    - nvcrimagepullsecret
+    - gitlab-imagepull-fluxcd
+    repository: nvcr.io/nim/meta/llama-3.2-3b-instruct
+    tag: 1.8.5
+  labels:
+    app.nvidia.com/nim-type: inference
+  livenessProbe: {}
+  metrics:
+    enabled: false
+    serviceMonitor:
+      additionalLabels:
+        release: prometheus
+  readinessProbe: {}
+  replicas: 1
+  resources:
+    limits:
+      nvidia.com/gpu: "1"
+    requests:
+      cpu: "1"
+  scale:
+    enabled: false
+    hpa:
+      maxReplicas: 0
+  startupProbe: {}
+  storage:
+    nimCache: {}
+    pvc:
+      create: true
+      name: modeldeployment-ben-test-llama-3-2-3b-instruct-deployment
+      size: 200Gi
+      storageClass: oci-bv
+      volumeAccessMode: ReadWriteOnce

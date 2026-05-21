@@ -1,0 +1,66 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "extends": [
+    "config:recommended"
+  ],
+  "rebaseWhen": "never",
+  "labels": ["renovate"],
+  "cloneSubmodules": true,
+  "reviewersFromCodeOwners": true,
+  "reviewersSampleSize": 2,
+  "ignorePaths": [".gitlab/**", "controllers/**", "sdk/**"],
+  "packageRules": [
+    {
+      "matchManagers": ["pep621", "pip_requirements"],
+      "matchUpdateTypes": ["major", "replacement", "lockFileMaintenance", "rollback"],
+      "groupName": "Python dependencies [{{parentDir}}]",
+      "addLabels": ["renovate::major", "component::platform"],
+      "additionalBranchPrefix": "{{parentDir}}-"
+    },
+    {
+      "matchManagers": ["pep621", "pip_requirements"],
+      "matchUpdateTypes": ["minor", "patch", "lockFileMaintenance", "bump"],
+      "groupName": "Python dependencies [{{parentDir}}]",
+      "addLabels": ["renovate::minor", "component::platform"],
+      "additionalBranchPrefix": "{{parentDir}}-"
+    },
+    {
+      "matchManagers": ["pep621", "pip_requirements"],
+      "matchUpdateTypes": [ "pin", "pinDigest", "lockFileMaintenance", "digest"],
+      "groupName": "Python dependencies [{{parentDir}}]",
+      "addLabels": ["renovate::pin", "component::platform"]
+    },
+    {
+      "matchManagers": ["gomod"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["npm", "nvm"],
+      "groupName": "Node dependencies",
+      "addLabels": ["component::helm"]
+    },
+    {
+      "matchManagers": ["helmv3", "helmfile", "helm-values", "helm-requirements"],
+      "groupName": "Helm dependencies",
+      "addLabels": ["renovate::minor", "component::helm"]
+    },
+    {
+      "matchManagers": ["docker-compose"],
+      "groupName": "Docker-Compose dependencies",
+      "addLabels": ["renovate::minor", "component::deployment"]
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "groupName": "Dockerfile dependencies",
+      "addLabels": ["renovate::minor", "component::platform"]
+    },
+    {
+      "matchManagers": ["gitlabci", "gitlabci-include"],
+      "groupName": "CI dependencies",
+      "addLabels": ["team::ops", "renovate::minor", "component::platform", "CI/CD"]
+    }
+  ]
+}

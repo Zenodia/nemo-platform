@@ -1,0 +1,5 @@
+Dockerfile*
+.dockerignore
+skaffold.yaml
+skaffold
+**/__pycache__

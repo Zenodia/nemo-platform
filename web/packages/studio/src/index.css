@@ -1,0 +1,81 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. */
+/* SPDX-License-Identifier: Apache-2.0 */
+@import './generated/styles.css';
+@import 'tailwindcss/theme.css';
+@import 'tailwindcss/preflight.css';
+@import 'tailwindcss/utilities.css';
+
+@plugin "@nvidia/foundations-tailwind-plugin" {
+  disable-component-utilities: true;
+
+  /* Prefixes the tailwind utility classes to have higher specificity than the components' custom classes. */
+  important: ':root body';
+}
+
+.nv-dark,
+.nv-dark body {
+  color-scheme: dark;
+}
+
+html,
+body {
+  @apply bg-surface-base;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}
+
+/* Ensures long tooltips are readable and links are styled correctly */
+.nv-tooltip-content {
+  @apply whitespace-pre-line max-h-[600px] max-w-[400px] overflow-auto leading-lh-150 font-normal text-sm;
+}
+.nv-tooltip-content a {
+  color: currentColor;
+}
+
+/* Lucide icons: default size and stroke width, overridable via Tailwind utilities */
+@layer base {
+  .lucide {
+    width: 16px;
+    height: 16px;
+    stroke-width: 1;
+  }
+
+  .lucide * {
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+/* hack fix - Checkbox component has incorrect outline color */
+.nv-checkbox-box {
+  &[data-state='checked'],
+  &[data-state='indeterminate'] {
+    .nv-checkbox-indicator path {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+
+/* hack fix - Switch component has incorrect outline color */
+.nv-switch-track {
+  &[data-state='checked'] {
+    &::before {
+      outline-color: var(--border-color-interaction-primary-base);
+      background-color: var(--background-color-interaction-primary-base);
+    }
+  }
+}
+
+/* hack fix: KUI ships Checkbox and RadioGroupItem without a pointer cursor */
+.nv-checkbox-box,
+.nv-radio-group-item {
+  cursor: pointer;
+}
+.nv-checkbox-box:disabled,
+.nv-checkbox-box[data-disabled],
+.nv-radio-group-item:disabled,
+.nv-radio-group-item[data-disabled] {
+  cursor: not-allowed;
+}

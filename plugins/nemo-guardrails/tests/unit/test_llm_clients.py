@@ -1,0 +1,200 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Unit tests for request-scoped LLM client header plumbing."""
+
+from typing import Any, Protocol, cast
+
+import pytest
+from nemo_guardrails_plugin import llm_clients
+from nemo_guardrails_plugin.llm_clients import (
+    build_header_aware_chat_nvidia,
+    build_platform_headers,
+    get_request_headers,
+    platform_headers_context,
+    register_header_aware_nim_provider,
+)
+from nemoguardrails.llm.models import langchain_initializer
+
+
+class HeaderAwareClientForTest(Protocol):
+    """Test-only view of the dynamic client returned as ``BaseChatModel``.
+
+    Production code only promises a ``BaseChatModel``, but these tests
+    intentionally inspect the private ChatNVIDIA hook we patch. This class
+    is a simple wrapper to inform the type checker of the fields we expect
+    to exist.
+    """
+
+    model: str
+    default_headers: dict[str, str] | None
+
+    def _prepare_inputs_and_payload(self, *args: Any, **kwargs: Any) -> tuple[Any, Any, dict[str, str]]: ...
+
+
+def assert_and_get_header_aware_client(client: object) -> HeaderAwareClientForTest:
+    """
+    The production helper returns BaseChatModel, but these tests need to
+    inspect the dynamic ChatNVIDIA subclass internals. Assert the runtime
+    shape first, then cast so the type checker can follow the same contract.
+    """
+    assert hasattr(client, "model")
+    assert hasattr(client, "default_headers")
+    assert hasattr(client, "_prepare_inputs_and_payload")
+    return cast(HeaderAwareClientForTest, client)
+
+
+class TestBuildPlatformHeaders:
+    def test_delegates_to_downstream_service_header_builder(self, monkeypatch) -> None:
+        captured: dict[str, str] = {}
+
+        def _fake_build(service_name: str) -> dict[str, str]:
+            captured["service_name"] = service_name
+            return {"X-NMP-Principal-Id": f"service:{service_name}", "traceparent": "00-platform"}
+
+        monkeypatch.setattr("nemo_guardrails_plugin.llm_clients.build_downstream_service_headers", _fake_build)
+
+        assert build_platform_headers("guardrails-test") == {
+            "X-NMP-Principal-Id": "service:guardrails-test",
+            "traceparent": "00-platform",
+        }
+        assert captured == {"service_name": "guardrails-test"}
+
+
+class TestRequestHeadersContext:
+    def test_defaults_to_empty_headers(self) -> None:
+        assert get_request_headers() == {}
+
+    def test_sets_platform_headers_and_resets_after_exit(self, monkeypatch) -> None:
+        def _fake_build(service_name: str) -> dict[str, str]:
+            return {"X-NMP-Principal-Id": f"service:{service_name}", "traceparent": "00-platform"}
+
+        monkeypatch.setattr("nemo_guardrails_plugin.llm_clients.build_downstream_service_headers", _fake_build)
+
+        assert get_request_headers() == {}
+
+        with platform_headers_context("guardrails-test"):
+            assert get_request_headers() == {
+                "traceparent": "00-platform",
+                "X-NMP-Principal-Id": "service:guardrails-test",
+            }
+
+        assert get_request_headers() == {}
+
+    def test_nested_contexts_restore_previous_headers(self, monkeypatch) -> None:
+        def _fake_build(service_name: str) -> dict[str, str]:
+            return {"traceparent": service_name}
+
+        monkeypatch.setattr("nemo_guardrails_plugin.llm_clients.build_downstream_service_headers", _fake_build)
+
+        with platform_headers_context("outer"):
+            assert get_request_headers() == {"traceparent": "outer"}
+
+            with platform_headers_context("inner"):
+                assert get_request_headers() == {"traceparent": "inner"}
+
+            assert get_request_headers() == {"traceparent": "outer"}
+
+        assert get_request_headers() == {}
+
+
+class TestHeaderAwareChatNVIDIA:
+    def test_merges_static_headers_with_current_platform_headers(self, monkeypatch) -> None:
+        class FakeChatNVIDIA:
+            def __init__(self, *, model: str, **kwargs) -> None:
+                self.model = model
+                self.default_headers = kwargs.get("default_headers")
+
+            def _prepare_inputs_and_payload(self, *args, **kwargs) -> tuple[None, None, dict[str, str] | None]:
+                return None, None, self.default_headers
+
+        monkeypatch.setattr("nemo_guardrails_plugin.llm_clients._load_chat_nvidia_class", lambda: FakeChatNVIDIA)
+        monkeypatch.setattr(
+            "nemo_guardrails_plugin.llm_clients.build_downstream_service_headers",
+            lambda service_name: {"X-NMP-Principal-Id": f"service:{service_name}", "traceparent": "00-platform"},
+        )
+
+        client = assert_and_get_header_aware_client(
+            build_header_aware_chat_nvidia(
+                model_name="default/safety",
+                kwargs={"default_headers": {"X-Static": "yes"}},
+            )
+        )
+
+        assert client.model == "default/safety"
+        assert client.default_headers == {"X-Static": "yes"}
+
+        with platform_headers_context("guardrails-test"):
+            _inputs, _payload, headers = client._prepare_inputs_and_payload([])
+            assert headers == {
+                "X-Static": "yes",
+                "X-NMP-Principal-Id": "service:guardrails-test",
+                "traceparent": "00-platform",
+            }
+            assert client.default_headers == {"X-Static": "yes"}
+
+        assert client.default_headers == {"X-Static": "yes"}
+
+    def test_default_headers_remains_static_after_contextual_request(self, monkeypatch) -> None:
+        class FakeChatNVIDIA:
+            def __init__(self, *, model: str, **kwargs) -> None:
+                self.model = model
+                self.default_headers = kwargs.get("default_headers")
+
+            def _prepare_inputs_and_payload(self, *args, **kwargs) -> tuple[str, str, dict[str, str]]:
+                return "inputs", "payload", dict(self.default_headers or {})
+
+        monkeypatch.setattr("nemo_guardrails_plugin.llm_clients._load_chat_nvidia_class", lambda: FakeChatNVIDIA)
+        monkeypatch.setattr(
+            "nemo_guardrails_plugin.llm_clients.build_downstream_service_headers",
+            lambda service_name: {"X-NMP-Principal-Id": f"service:{service_name}"},
+        )
+
+        client = assert_and_get_header_aware_client(
+            build_header_aware_chat_nvidia(
+                model_name="default/safety",
+                kwargs={"default_headers": {"X-Static": "yes"}},
+            )
+        )
+
+        with platform_headers_context("guardrails-test"):
+            _inputs, _payload, headers = client._prepare_inputs_and_payload([])
+
+        assert headers == {
+            "X-Static": "yes",
+            "X-NMP-Principal-Id": "service:guardrails-test",
+        }
+        assert client.default_headers == {"X-Static": "yes"}
+
+
+class TestRegisterHeaderAwareNimProvider:
+    def test_overrides_nemoguardrails_nim_initializer(self, monkeypatch) -> None:
+        initializers = {"nim": object(), "nvidia_ai_endpoints": object()}
+        monkeypatch.setattr(langchain_initializer, "_PROVIDER_INITIALIZERS", initializers)
+        monkeypatch.setattr(llm_clients, "_HEADER_AWARE_INITIALIZER_INSTALLED", False)
+
+        register_header_aware_nim_provider()
+
+        assert initializers["nim"] is llm_clients._init_header_aware_nim_model
+
+    def test_is_idempotent(self, monkeypatch) -> None:
+        first = {"nim": object()}
+        second = {"nim": object()}
+        monkeypatch.setattr(langchain_initializer, "_PROVIDER_INITIALIZERS", first)
+        monkeypatch.setattr(llm_clients, "_HEADER_AWARE_INITIALIZER_INSTALLED", False)
+
+        register_header_aware_nim_provider()
+        monkeypatch.setattr(langchain_initializer, "_PROVIDER_INITIALIZERS", second)
+        register_header_aware_nim_provider()
+
+        assert first["nim"] is llm_clients._init_header_aware_nim_model
+        assert second["nim"] is not llm_clients._init_header_aware_nim_model
+
+    def test_raises_if_nim_initializer_is_missing(self, monkeypatch) -> None:
+        monkeypatch.setattr(langchain_initializer, "_PROVIDER_INITIALIZERS", {})
+        monkeypatch.setattr(llm_clients, "_HEADER_AWARE_INITIALIZER_INSTALLED", False)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            register_header_aware_nim_provider()
+
+        assert "nim" in str(excinfo.value)

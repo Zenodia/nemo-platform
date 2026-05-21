@@ -1,0 +1,24 @@
+# Entity CRUD Operations - CLI Eval
+
+Tests that a coding agent can perform basic entity CRUD operations using the NeMo Platform CLI.
+
+## What This Tests
+
+- Create an entity with type and metadata
+- Retrieve an entity by name
+- List entities of a given type
+- Update entity metadata
+- Delete an entity
+
+## Build and Run
+
+```bash
+docker build -f Dockerfile.agentic-base -t nmp-agentic-base:latest .
+
+export ANTHROPIC_API_KEY='your-key'
+export ANTHROPIC_BASE_URL='https://inference-api.nvidia.com'
+
+harbor run -p tests/agentic-use/entities-basic-cli \
+    --agent claude-code \
+    --model anthropic/claude-sonnet-4-5
+```

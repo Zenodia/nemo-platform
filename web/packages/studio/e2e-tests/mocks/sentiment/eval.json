@@ -1,0 +1,23 @@
+[
+  { "prompt": "ok thats it.... sleep time", "ideal_response": "neutral", "category": "general" },
+  {
+    "prompt": "I`m ACTUALLY on Skype but ssshh don`t tell anyone.",
+    "ideal_response": "neutral",
+    "category": "general"
+  },
+  {
+    "prompt": "This porridge tastes ****! I cba with today man.",
+    "ideal_response": "negative",
+    "category": "general"
+  },
+  {
+    "prompt": "off to bed was gonna read some new moon but its a little late now  night night all ****",
+    "ideal_response": "neutral",
+    "category": "general"
+  },
+  {
+    "prompt": " I was asleep until my brother woke me up asking me if I ate the rest of the frosted mini wheats. I can`t go back to sleep.",
+    "ideal_response": "negative",
+    "category": "general"
+  }
+]

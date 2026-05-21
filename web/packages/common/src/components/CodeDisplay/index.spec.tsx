@@ -1,0 +1,36 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { render, screen } from '@testing-library/react';
+
+import { CodeDisplay } from './index';
+
+const multiLineString = `
+  typescript
+  console.log('Testing');
+  console.log('Testing Next Line');
+`;
+
+describe('CodeDisplay', () => {
+  it('should extract language identifier from code content and display it in the slotActions', () => {
+    render(<CodeDisplay>{multiLineString}</CodeDisplay>);
+    const codeActions = screen.getByTestId('nv-code-snippet-actions');
+
+    expect(codeActions.textContent).toContain('typescript');
+  });
+
+  it('should remove language identifier from displayed code', () => {
+    render(<CodeDisplay>{multiLineString}</CodeDisplay>);
+
+    const codeContent = screen.getByTestId('nv-code-snippet-code');
+    expect(codeContent.textContent).not.toContain('typescript');
+  });
+
+  it('should pass extracted language to CodeSnippet', () => {
+    render(<CodeDisplay>{multiLineString}</CodeDisplay>);
+
+    const codeContent = screen.getByTestId('nv-code-snippet-code');
+    expect(codeContent.textContent).toContain("console.log('Testing')");
+    expect(codeContent.textContent).toContain("console.log('Testing Next Line')");
+  });
+});

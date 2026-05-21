@@ -1,0 +1,164 @@
+name: Self-hosted runner metadata
+description: >
+  Emits GitHub-provided runner context for self-hosted jobs and optionally
+  publishes OS-level host, Docker, and GPU metadata when enabled.
+
+inputs:
+  requested_runner:
+    description: The runs-on selector configured for the job
+    required: false
+    default: ""
+  publish_host_metadata:
+    description: >
+      Opt in to publishing OS-level host metadata, including hostname, user,
+      kernel, memory, workspace, disk usage, Docker host details, and GPU
+      details. GitHub-provided runner context is always emitted. Can also be
+      enabled by setting
+      SELF_HOSTED_PUBLISH_METADATA=true in the caller environment.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Report self-hosted runner metadata
+      shell: bash
+      env:
+        REQUESTED_RUNNER: ${{ inputs.requested_runner }}
+        PUBLISH_HOST_METADATA_INPUT: ${{ inputs.publish_host_metadata }}
+        RUNNER_NAME: ${{ runner.name }}
+        RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
+        RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        GITHUB_JOB_NAME: ${{ github.job }}
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+      run: |
+        set -u
+
+        publish_host_metadata="false"
+        for candidate in "${PUBLISH_HOST_METADATA_INPUT:-false}" "${SELF_HOSTED_PUBLISH_METADATA:-false}"; do
+          case "${candidate}" in
+            true|TRUE|True|1|yes|YES|on|ON)
+              publish_host_metadata="true"
+              break
+              ;;
+          esac
+        done
+
+        echo "Runner selection: ${REQUESTED_RUNNER:-unknown}"
+        echo "Runner name: ${RUNNER_NAME}"
+        echo "Runner OS/arch: ${RUNNER_OS}/${RUNNER_ARCH}"
+        echo "Runner environment: ${RUNNER_ENVIRONMENT}"
+        echo "GitHub job: ${GITHUB_JOB_NAME}"
+        echo "GitHub ref: ${GITHUB_REF_NAME}"
+        echo "GitHub run: ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT})"
+
+        {
+          echo "### Self-hosted runner metadata"
+          echo
+          echo "| Field | Value |"
+          echo "| --- | --- |"
+          echo "| Requested runner | ${REQUESTED_RUNNER:-unknown} |"
+          echo "| Runner name | ${RUNNER_NAME} |"
+          echo "| Runner OS / arch | ${RUNNER_OS} / ${RUNNER_ARCH} |"
+          echo "| Runner environment | ${RUNNER_ENVIRONMENT} |"
+          echo "| GitHub job | ${GITHUB_JOB_NAME} |"
+          echo "| GitHub ref | ${GITHUB_REF_NAME} |"
+          echo "| Run | ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT}) |"
+          echo
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+        if [ "${publish_host_metadata}" != "true" ]; then
+          echo
+          echo "OS-level host metadata is disabled."
+          echo "Set inputs.publish_host_metadata=true or SELF_HOSTED_PUBLISH_METADATA=true to enable it."
+          {
+            echo "OS-level host metadata is disabled."
+            echo
+          } >> "${GITHUB_STEP_SUMMARY}"
+          exit 0
+        fi
+
+        hostname_value="$(hostname 2>/dev/null || echo unknown)"
+        kernel_value="$(uname -srmo 2>/dev/null || uname -a 2>/dev/null || echo unknown)"
+        user_value="$(whoami 2>/dev/null || echo unknown)"
+        cpu_count="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo unknown)"
+
+        if [ -r /etc/os-release ]; then
+          os_pretty_name="$(awk -F= '/^PRETTY_NAME=/{gsub(/"/, "", $2); print $2}' /etc/os-release)"
+        else
+          os_pretty_name="unknown"
+        fi
+
+        if [ -r /proc/meminfo ]; then
+          mem_total_kb="$(awk '/^MemTotal:/{print $2}' /proc/meminfo)"
+          mem_total_gib="$(awk -v kb="${mem_total_kb}" 'BEGIN { printf "%.2f", kb / 1024 / 1024 }')"
+        else
+          mem_total_gib="unknown"
+        fi
+
+        echo "Hostname: ${hostname_value}"
+        echo "User: ${user_value}"
+        echo "OS: ${os_pretty_name}"
+        echo "Kernel: ${kernel_value}"
+        echo "CPU cores: ${cpu_count}"
+        echo "Memory GiB: ${mem_total_gib}"
+        echo "Workspace: ${GITHUB_WORKSPACE}"
+        echo
+        echo "Disk usage:"
+        df -h / "${GITHUB_WORKSPACE}" 2>/dev/null || df -h
+        echo
+
+        {
+          echo "| Hostname | ${hostname_value} |"
+          echo "| User | ${user_value} |"
+          echo "| OS | ${os_pretty_name} |"
+          echo "| Kernel | ${kernel_value} |"
+          echo "| CPU cores | ${cpu_count} |"
+          echo "| Memory GiB | ${mem_total_gib} |"
+          echo
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+        if command -v docker >/dev/null 2>&1; then
+          echo "Docker version:"
+          docker version --format '{{.Server.Version}}' 2>/dev/null || docker version 2>/dev/null || true
+          echo
+          echo "Docker info:"
+          docker info --format 'Driver={{.Driver}} CgroupDriver={{.CgroupDriver}} CgroupVersion={{.CgroupVersion}} Storage={{.DockerRootDir}}' 2>/dev/null || true
+          echo
+          {
+            echo "Docker detected."
+            echo
+            echo '```text'
+            docker version --format 'Server={{.Server.Version}} Client={{.Client.Version}}' 2>/dev/null || docker version 2>/dev/null || true
+            docker info --format 'Driver={{.Driver}} CgroupDriver={{.CgroupDriver}} CgroupVersion={{.CgroupVersion}} RootDir={{.DockerRootDir}}' 2>/dev/null || true
+            echo '```'
+            echo
+          } >> "${GITHUB_STEP_SUMMARY}"
+        else
+          echo "Docker: not available"
+          echo "Docker not detected." >> "${GITHUB_STEP_SUMMARY}"
+          echo >> "${GITHUB_STEP_SUMMARY}"
+        fi
+
+        if command -v nvidia-smi >/dev/null 2>&1; then
+          echo "GPU inventory:"
+          nvidia-smi -L || true
+          echo
+          echo "GPU details:"
+          nvidia-smi --query-gpu=name,driver_version,memory.total,pstate --format=csv,noheader || true
+          echo
+          {
+            echo "GPU detected."
+            echo
+            echo '```text'
+            nvidia-smi -L || true
+            nvidia-smi --query-gpu=name,driver_version,memory.total,pstate --format=csv,noheader || true
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+        else
+          echo "GPU: not detected"
+          echo "GPU not detected." >> "${GITHUB_STEP_SUMMARY}"
+        fi

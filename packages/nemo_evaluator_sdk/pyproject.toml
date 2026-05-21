@@ -1,0 +1,56 @@
+[project]
+name = "nemo-evaluator-sdk"
+version = "0.0.0"
+description = "NeMo Evaluator SDK"
+readme = "README.md"
+authors = [{ name = "NVIDIA", email = "nemo@nvidia.com" }]
+requires-python = ">=3.11,<3.14"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+  "Topic :: Software Development",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+  "pydantic>=2.10.6",
+  "jinja2>=3.1.6",
+  "jsonschema>=4.23.0",
+  "jsonpath-ng>=1.7.0",
+  "pyarrow>=19.0.1",
+  "pandas>=1.5.3",
+  "openai>=1.61.0",
+  "sacrebleu>=2.5.1",
+  "rouge_score==0.1.2",
+]
+
+[dependency-groups]
+dev = ["nemo-evaluator-plugin", "nemo-platform-sdk"]
+
+[project.optional-dependencies]
+engine = []
+nemo-platform = [
+  "nemo-platform-sdk",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = ["--import-mode=importlib"]
+
+[tool.vendor-package]
+package = "nemo_evaluator_sdk"
+package_root = "packages/nemo_evaluator_sdk"
+source_module = "nemo_evaluator_sdk"
+target_sdk_module = "beta.evaluator"
+sdk_optional_dependencies_name = "evaluator"
+included_paths = ["**/*.py"]

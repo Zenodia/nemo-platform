@@ -1,0 +1,83 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { PageHeader, Stack } from '@nvidia/foundations-react-core';
+import { AccessibleTitle } from '@studio/components/AccessibleTitle';
+import { AgentsTable, type AgentTableRow } from '@studio/components/dataViews/AgentsDataView';
+import {
+  AgentPanel,
+  type AgentPanelTab,
+} from '@studio/components/sidePanels/AgentPanels/AgentPanel';
+import { ROUTE_PARAMS } from '@studio/constants/routes';
+import { useWorkspaceFromPath } from '@studio/hooks/useWorkspaceFromPath';
+import { useBreadcrumbs } from '@studio/providers/breadcrumbs/useBreadcrumbs';
+import { CreateDeploymentModal } from '@studio/routes/agents/AgentDeploymentsListRoute/CreateDeploymentModal';
+import { getAgentDetailRoute, getAgentsListRoute } from '@studio/routes/utils';
+import { type FC, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+
+const TAB_SEARCH_PARAM = 'tab';
+
+export const AgentsListRoute: FC = () => {
+  const workspace = useWorkspaceFromPath();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [createDeploymentAgent, setCreateDeploymentAgent] = useState<string | null>(null);
+  const { [ROUTE_PARAMS.agentName]: agentNameParam } = useParams<{ agentName?: string }>();
+  const tabFromUrl: AgentPanelTab =
+    (searchParams.get(TAB_SEARCH_PARAM) as AgentPanelTab) || 'agent-details';
+
+  useBreadcrumbs({
+    items: [{ slotLabel: 'Agents' }],
+  });
+
+  const handleOpenPanel = (agent: AgentTableRow) => {
+    navigate(`${getAgentDetailRoute(workspace, agent.name)}?${TAB_SEARCH_PARAM}=agent-details`, {
+      replace: true,
+    });
+  };
+
+  const handleClosePanel = () => {
+    navigate(getAgentsListRoute(workspace), { replace: true });
+  };
+
+  return (
+    <AccessibleTitle title={`Agents for ${workspace}`}>
+      <Stack className="h-full" gap="density-2xl" padding="density-2xl">
+        <PageHeader
+          className="p-0"
+          slotHeading="Agents"
+          slotDescription="View and manage AI agents and their deployments."
+        />
+        <AgentsTable
+          onAgentRowClick={handleOpenPanel}
+          onCreateDeployment={(agentName) => setCreateDeploymentAgent(agentName)}
+        />
+      </Stack>
+      <CreateDeploymentModal
+        open={createDeploymentAgent !== null}
+        agent={createDeploymentAgent || undefined}
+        onClose={() => setCreateDeploymentAgent(null)}
+        workspace={workspace}
+      />
+      <AgentPanel
+        open={!!agentNameParam}
+        agentName={agentNameParam}
+        workspace={workspace}
+        defaultTab={tabFromUrl}
+        onTabChange={(tab) =>
+          setSearchParams(
+            (prev) => {
+              prev.set(TAB_SEARCH_PARAM, tab);
+              return prev;
+            },
+            { replace: true }
+          )
+        }
+        onOpenChange={(open) => {
+          if (!open) handleClosePanel();
+        }}
+      />
+    </AccessibleTitle>
+  );
+};

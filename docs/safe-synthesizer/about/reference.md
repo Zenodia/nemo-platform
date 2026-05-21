@@ -1,0 +1,121 @@
+<!-- @nemo-nb: process -->
+<!-- @nemo-nb: skip-test -->
+<a id="safe-synthesizer-reference"></a>
+# Parameters Reference
+
+This page summarizes the main configuration groups available when creating
+{{nss_short_name}} jobs. For generated REST API schema details, see the
+[Safe Synthesizer API Reference](../../api/index.md#tag-safe-synthesizer).
+
+## Top-Level Configuration
+
+The `SafeSynthesizerParameters` schema defines the main configuration structure for Safe Synthesizer jobs.
+
+### SafeSynthesizerParameters
+
+All fields are optional at the top level. For nested field constraints, see the
+[Safe Synthesizer API Reference](../../api/index.md#tag-safe-synthesizer) and
+search for the schema name in the **Type** column.
+
+| Field | Type | Constraints / description |
+|-------|------|---------------------------|
+| `data` | `DataParameters` | Controls grouping, ordering, and train/evaluation holdout behavior. |
+| `evaluation` | `EvaluationParameters` | Controls synthetic data quality and privacy evaluation settings. |
+| `training` | `TrainingHyperparams` | Controls fine-tuning behavior such as learning rate, batch size, LoRA settings, and optimization settings. |
+| `generation` | `GenerateParameters` | Controls synthetic data generation, including record count, sampling, structured generation, and validation. |
+| `privacy` | `DifferentialPrivacyHyperparams` | Configures DP-SGD. When omitted, differential privacy is disabled. |
+| `time_series` | `TimeSeriesParameters` | Configures experimental time-series mode, including timestamp and interval handling. |
+| `replace_pii` | `PiiReplacerConfig` | Configures PII detection and replacement. If provided directly, `steps` must contain 1 to 10 transformation steps. |
+
+---
+
+<a id="data-parameters"></a>
+## Data Parameters
+
+Configuration for how to shape or use the input data, including grouping, ordering, and holdout settings.
+
+---
+
+<a id="training-parameters"></a>
+## Training Parameters
+
+Hyperparameters for model fine-tuning, including learning rate, batch size, and LoRA configuration.
+
+---
+
+<a id="generation-parameters"></a>
+## Generation Parameters
+
+Configuration for synthetic data generation after training, including number of records, temperature, and structured generation options.
+
+---
+
+## Differential Privacy Parameters
+
+Hyperparameters for differential privacy during training using DP-SGD. Enable these for formal privacy guarantees.
+
+---
+
+## Evaluation Parameters
+
+Configuration for synthetic data quality and privacy assessment, including MIA, AIA, and PII replay detection.
+
+---
+
+## PII Replacement Configuration
+
+Configuration for PII detection and replacement. See [pii-replacement](../about/pii-replacement.md) for conceptual documentation.
+
+### Column Classification Config (`replace_pii.globals.classify`)
+
+Column classification is configured via the SDK builder's `.with_classify_model_provider(provider_name)` method. The provider name can be unqualified (the builder prepends the current workspace) or fully-qualified as `workspace/provider_name`.
+
+If omitted, column classification is skipped and PII detection falls back to heuristic defaults, which may reduce accuracy.
+
+---
+
+## Example Configuration
+
+Here's an example showing a complete job configuration using the Python SDK:
+
+```python
+import os
+import pandas as pd
+
+from nemo_platform import NeMoPlatform
+from nemo_platform.beta.safe_synthesizer.job_builder import SafeSynthesizerJobBuilder
+
+# Placeholders
+df: pd.DataFrame = pd.DataFrame()
+client = NeMoPlatform(
+    base_url=os.environ.get("NMP_BASE_URL", "http://localhost:8080"),
+    workspace="default",
+)
+
+builder = (
+    SafeSynthesizerJobBuilder(client)
+    .with_data_source(df)
+    .with_train(
+        num_input_records_to_sample=10000,
+        learning_rate=0.0005,
+        batch_size=1,
+    )
+    .with_generate(
+        num_records=5000,
+        temperature=0.9,
+    )
+    .with_differential_privacy(
+        dp_enabled=True,
+        epsilon=8.0,
+    )
+    .with_replace_pii()
+    .synthesize()
+)
+job = builder.create_job(name="my-job", project="my-project")
+```
+
+## Related Topics
+
+- [data-synthesis](../about/data-synthesis.md) - Learn about synthesis concepts
+- [evaluation](../about/evaluation.md) - Learn about evaluation metrics
+- [index](../tutorials/index.md) - Hands-on tutorials

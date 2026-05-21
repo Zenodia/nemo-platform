@@ -1,0 +1,523 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Integration tests for ``nemo services`` process lifecycle.
+
+These tests spawn real subprocesses and use real flock/descriptor files to verify
+the full lifecycle.  They complement the unit tests in ``test_services_process.py``
+(which mock process operations) and the CLI tests in ``test_services.py``.
+
+Coverage:
+- flock-based liveness survives subprocess exit (SIGTERM, SIGKILL, clean exit)
+- Descriptor cleanup on signal
+- Multiple scopes coexist
+- PID reuse detected via create_time
+- Crash recovery (stale descriptor, released flock)
+"""
+
+from __future__ import annotations
+
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import pytest
+from nemo_platform.cli.commands.services._process import (
+    InstanceDescriptor,
+    instance_dir,
+    is_instance_alive,
+    list_instances,
+    read_descriptor,
+    stop_instance,
+    write_descriptor,
+)
+
+_STARTUP_TIMEOUT = 15
+_SHUTDOWN_TIMEOUT = 5
+
+# Script that acquires flock, writes descriptor, signals readiness, then sleeps.
+_PLATFORM_SCRIPT = """\
+import fcntl, json, os, signal, sys, time
+
+base_dir = sys.argv[1]
+scope = sys.argv[2]
+ready_marker = sys.argv[3]
+
+inst_dir = os.path.join(base_dir, "instances", scope)
+os.makedirs(inst_dir, exist_ok=True)
+
+# Acquire flock
+lock_path = os.path.join(inst_dir, "services.lock")
+lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+# Write descriptor
+import psutil as _psutil
+desc = {
+    "pid": os.getpid(),
+    "scope": scope,
+    "host": "127.0.0.1",
+    "port": 8080,
+    "mode": "background",
+    "create_time": _psutil.Process(os.getpid()).create_time(),
+    "started_at": "test",
+    "services": None,
+    "controllers": None,
+    "service_group": None,
+    "controller_group": None,
+    "sidecars": None,
+    "config_path": None,
+    "log_path": None,
+}
+desc_path = os.path.join(inst_dir, "instance.json")
+with open(desc_path, "w") as f:
+    json.dump(desc, f, indent=2)
+
+def cleanup(signum, _frame):
+    try:
+        os.unlink(desc_path)
+    except FileNotFoundError:
+        pass
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+signal.signal(signal.SIGINT, cleanup)
+signal.signal(signal.SIGTERM, cleanup)
+
+# Signal readiness
+with open(ready_marker, "w") as f:
+    f.write(str(os.getpid()))
+
+while True:
+    time.sleep(0.1)
+"""
+
+
+def _spawn_platform(script_dir: Path, base_dir: Path, scope: str):
+    """Spawn a fake platform that acquires flock and writes descriptor."""
+    script_dir.mkdir(parents=True, exist_ok=True)
+    script_path = script_dir / "fake_platform.py"
+    script_path.write_text(_PLATFORM_SCRIPT)
+    ready_marker = script_dir / "ready"
+
+    proc = subprocess.Popen(
+        [sys.executable, str(script_path), str(base_dir), scope, str(ready_marker)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    deadline = time.monotonic() + _STARTUP_TIMEOUT
+    while time.monotonic() < deadline:
+        if ready_marker.exists():
+            return proc
+        if proc.poll() is not None:
+            pytest.fail(f"Platform process exited early: {proc.returncode}")
+        time.sleep(0.05)
+    proc.kill()
+    proc.wait(timeout=5)
+    pytest.fail(f"Platform process did not become ready within {_STARTUP_TIMEOUT}s")
+
+
+class TestFlockLifecycle:
+    """Verify flock is released on process exit and descriptor is cleaned by signal handler."""
+
+    def test_sigterm_releases_flock_and_cleans_descriptor(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "sigterm-test"
+        proc = _spawn_platform(tmp_path / "scripts", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+            assert read_descriptor(scope, base_dir=base_dir) is not None
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+            assert not is_instance_alive(scope, base_dir=base_dir)
+            assert read_descriptor(scope, base_dir=base_dir) is None
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+
+    def test_sigint_releases_flock_and_cleans_descriptor(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "sigint-test"
+        proc = _spawn_platform(tmp_path / "scripts", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+
+            os.kill(proc.pid, signal.SIGINT)
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+            assert not is_instance_alive(scope, base_dir=base_dir)
+            assert read_descriptor(scope, base_dir=base_dir) is None
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+
+    def test_sigkill_releases_flock_leaves_stale_descriptor(self, tmp_path: Path) -> None:
+        """SIGKILL prevents cleanup handler from running, but flock is released by kernel."""
+        base_dir = tmp_path / "state"
+        scope = "sigkill-test"
+        proc = _spawn_platform(tmp_path / "scripts", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+
+            os.kill(proc.pid, signal.SIGKILL)
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+            assert not is_instance_alive(scope, base_dir=base_dir)
+            # Descriptor is stale but still on disk (signal handler didn't run)
+            desc = read_descriptor(scope, base_dir=base_dir)
+            assert desc is not None
+            assert desc.pid == proc.pid
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+
+
+class TestMultipleScopes:
+    """Verify instances in different scopes coexist independently."""
+
+    def test_two_scopes_coexist(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        proc_a = _spawn_platform(tmp_path / "run-a", base_dir, "scope-a")
+        proc_b = _spawn_platform(tmp_path / "run-b", base_dir, "scope-b")
+        try:
+            assert is_instance_alive("scope-a", base_dir=base_dir)
+            assert is_instance_alive("scope-b", base_dir=base_dir)
+
+            instances = list_instances(base_dir=base_dir)
+            alive_scopes = {i.scope for i in instances if i.alive}
+            assert alive_scopes == {"scope-a", "scope-b"}
+
+            # Stop only scope-a
+            os.kill(proc_a.pid, signal.SIGTERM)
+            proc_a.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+            assert not is_instance_alive("scope-a", base_dir=base_dir)
+            assert is_instance_alive("scope-b", base_dir=base_dir)
+        finally:
+            for p in (proc_a, proc_b):
+                if p.poll() is None:
+                    p.kill()
+                    p.wait(timeout=5)
+
+
+class TestStopInstance:
+    """Integration: stop_instance with a real subprocess."""
+
+    def test_stop_sends_sigterm(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "stop-real"
+        proc = _spawn_platform(tmp_path / "scripts", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+
+            result = stop_instance(scope, base_dir=base_dir, timeout=5.0)
+            assert proc.pid in result.stopped_pids
+
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+            assert proc.poll() is not None
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
+
+
+class TestCrashRecovery:
+    """After a crash (SIGKILL), a new instance should start cleanly."""
+
+    def test_new_instance_after_crash(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "crash-recover"
+
+        # Start and crash
+        proc1 = _spawn_platform(tmp_path / "run1", base_dir, scope)
+        os.kill(proc1.pid, signal.SIGKILL)
+        proc1.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+        # Flock released by kernel, descriptor is stale
+        assert not is_instance_alive(scope, base_dir=base_dir)
+        assert read_descriptor(scope, base_dir=base_dir) is not None
+
+        # New instance should start -- the stale descriptor doesn't prevent it
+        # because the flock is what matters
+        proc2 = _spawn_platform(tmp_path / "run2", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+            desc = read_descriptor(scope, base_dir=base_dir)
+            assert desc is not None
+            assert desc.pid == proc2.pid
+            assert desc.pid != proc1.pid
+        finally:
+            os.kill(proc2.pid, signal.SIGTERM)
+            proc2.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+
+class TestPidReuseProtection:
+    """Verify create_time validation prevents PID reuse false positives."""
+
+    def test_stale_descriptor_with_reused_pid(self, tmp_path: Path) -> None:
+        """A stale descriptor whose PID was reused by another process is detected."""
+        base_dir = tmp_path / "state"
+        scope = "reuse-test"
+
+        # Create a real process to get a valid PID
+        sleeper = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(60)"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            # Write a descriptor with the sleeper's PID but wrong create_time
+            desc = InstanceDescriptor(
+                pid=sleeper.pid,
+                scope=scope,
+                host="127.0.0.1",
+                port=8080,
+                mode="background",
+                create_time=0.0,  # intentionally wrong
+            )
+            write_descriptor(desc, base_dir=base_dir)
+
+            # stop_instance should detect the mismatch and clean up
+            result = stop_instance(scope, base_dir=base_dir)
+            assert result.stopped_pids == []
+            assert read_descriptor(scope, base_dir=base_dir) is None
+        finally:
+            sleeper.terminate()
+            try:
+                sleeper.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                sleeper.kill()
+                sleeper.wait(timeout=5)
+
+
+class TestFullLifecycle:
+    """P0: Full start -> detect -> stop -> detect-gone -> start-again cycle."""
+
+    def test_start_detect_stop_restart(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "full-lifecycle"
+
+        # Phase 1: Start
+        proc1 = _spawn_platform(tmp_path / "run1", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+            desc = read_descriptor(scope, base_dir=base_dir)
+            assert desc is not None
+            assert desc.pid == proc1.pid
+
+            # Phase 2: Stop
+            result = stop_instance(scope, base_dir=base_dir, timeout=5.0)
+            assert proc1.pid in result.stopped_pids
+            proc1.wait(timeout=_SHUTDOWN_TIMEOUT)
+        finally:
+            if proc1.poll() is None:
+                proc1.kill()
+                proc1.wait(timeout=5)
+
+        # Phase 3: Verify gone
+        assert not is_instance_alive(scope, base_dir=base_dir)
+
+        # Phase 4: Start again
+        proc2 = _spawn_platform(tmp_path / "run2", base_dir, scope)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+            desc = read_descriptor(scope, base_dir=base_dir)
+            assert desc is not None
+            assert desc.pid == proc2.pid
+            assert desc.pid != proc1.pid
+        finally:
+            os.kill(proc2.pid, signal.SIGTERM)
+            proc2.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+
+class TestLogSurvivesRestart:
+    """Previous boot's logs survive a restart."""
+
+    def test_log_preserved_across_restart(self, tmp_path: Path) -> None:
+        base_dir = tmp_path / "state"
+        scope = "log-survive"
+
+        d = instance_dir(scope, base_dir=base_dir)
+        log = d / "services.log"
+        log.write_text("first boot log content\n")
+
+        from nemo_platform.cli.commands.services._process import rotate_log
+
+        new_log = rotate_log(scope, base_dir=base_dir)
+        new_log.write_text("second boot log content\n")
+
+        rotated = list(d.glob("services.log.*"))
+        assert len(rotated) == 1
+        assert rotated[0].read_text() == "first boot log content\n"
+        assert new_log.read_text() == "second boot log content\n"
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: health polling with a real HTTP server
+# ---------------------------------------------------------------------------
+
+_HEALTH_SERVER_SCRIPT = """\
+\"\"\"Minimal platform stub: flock + descriptor + HTTP /health/ready.\"\"\"
+import fcntl, http.server, json, os, signal, sys, threading
+
+base_dir = sys.argv[1]
+scope = sys.argv[2]
+port = int(sys.argv[3])
+ready_marker = sys.argv[4]
+
+inst_dir = os.path.join(base_dir, "instances", scope)
+os.makedirs(inst_dir, exist_ok=True)
+
+# Acquire flock
+lock_path = os.path.join(inst_dir, "services.lock")
+lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR)
+fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+# Write descriptor
+import psutil as _psutil
+desc = {
+    "pid": os.getpid(),
+    "scope": scope,
+    "host": "127.0.0.1",
+    "port": port,
+    "mode": "background",
+    "create_time": _psutil.Process(os.getpid()).create_time(),
+    "started_at": "test",
+    "services": None, "controllers": None,
+    "service_group": None, "controller_group": None,
+    "sidecars": None, "config_path": None, "log_path": None,
+}
+desc_path = os.path.join(inst_dir, "instance.json")
+with open(desc_path, "w") as f:
+    json.dump(desc, f, indent=2)
+
+# HTTP server for /health/ready
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/health/ready":
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+        else:
+            self.send_response(404)
+            self.end_headers()
+    def log_message(self, format, *args):
+        pass  # suppress request logs
+
+server = http.server.HTTPServer(("127.0.0.1", port), Handler)
+server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+server_thread.start()
+
+def shutdown(signum, _frame):
+    server.shutdown()
+    try:
+        os.unlink(desc_path)
+    except FileNotFoundError:
+        pass
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
+
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
+
+# Signal readiness
+with open(ready_marker, "w") as f:
+    f.write(str(os.getpid()))
+
+# Block
+import time
+while True:
+    time.sleep(1)
+"""
+
+
+def _find_free_port() -> int:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _spawn_health_server(script_dir: Path, base_dir: Path, scope: str, port: int):
+    """Spawn a minimal platform stub with a real HTTP health endpoint."""
+    script_dir.mkdir(parents=True, exist_ok=True)
+    script_path = script_dir / "health_server.py"
+    script_path.write_text(_HEALTH_SERVER_SCRIPT)
+    ready_marker = script_dir / "ready"
+
+    proc = subprocess.Popen(
+        [sys.executable, str(script_path), str(base_dir), scope, str(port), str(ready_marker)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    deadline = time.monotonic() + _STARTUP_TIMEOUT
+    while time.monotonic() < deadline:
+        if ready_marker.exists():
+            return proc
+        if proc.poll() is not None:
+            pytest.fail(f"Health server exited early with code {proc.returncode}")
+        time.sleep(0.1)
+    proc.kill()
+    proc.wait(timeout=5)
+    pytest.fail(f"Health server did not become ready within {_STARTUP_TIMEOUT}s")
+
+
+class TestEndToEndHealthPolling:
+    """Integration: _wait_for_healthy against a real HTTP server."""
+
+    def test_health_poll_succeeds_with_real_server(self, tmp_path: Path) -> None:
+        from nemo_platform.cli.commands.services.cli import _wait_for_healthy
+
+        base_dir = tmp_path / "state"
+        scope = "e2e-health"
+        port = _find_free_port()
+
+        proc = _spawn_health_server(tmp_path / "scripts", base_dir, scope, port)
+        try:
+            result = _wait_for_healthy("127.0.0.1", port, timeout=10, poll_interval=0.2)
+            assert result is True
+            assert is_instance_alive(scope, base_dir=base_dir)
+        finally:
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+
+    def test_health_poll_fails_when_server_down(self, tmp_path: Path) -> None:
+        from nemo_platform.cli.commands.services.cli import _wait_for_healthy
+
+        port = _find_free_port()
+        result = _wait_for_healthy("127.0.0.1", port, timeout=0.5, poll_interval=0.1)
+        assert result is False
+
+    def test_stop_after_health_check(self, tmp_path: Path) -> None:
+        """Full cycle: spawn health server, verify healthy, stop it, verify gone."""
+        base_dir = tmp_path / "state"
+        scope = "e2e-stop"
+        port = _find_free_port()
+
+        proc = _spawn_health_server(tmp_path / "scripts", base_dir, scope, port)
+        try:
+            assert is_instance_alive(scope, base_dir=base_dir)
+            desc = read_descriptor(scope, base_dir=base_dir)
+            assert desc is not None
+            assert desc.port == port
+
+            result = stop_instance(scope, base_dir=base_dir, timeout=5.0)
+            assert proc.pid in result.stopped_pids
+            proc.wait(timeout=_SHUTDOWN_TIMEOUT)
+            assert not is_instance_alive(scope, base_dir=base_dir)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)

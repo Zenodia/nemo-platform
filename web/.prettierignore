@@ -1,0 +1,5 @@
+# Helm templates contain Go templating syntax that Prettier can't parse
+helm/
+
+# Lock file
+pnpm-lock.yaml

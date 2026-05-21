@@ -1,0 +1,2 @@
+# Minimal guardrail config used for integration testing of the file-based seeding path.
+models: []

@@ -1,0 +1,903 @@
+openapi: 3.1.0
+info:
+  title: auditor (plugin)
+  version: 0.1.0
+paths:
+  /apis/auditor/v1/healthz:
+    get:
+      tags:
+      - Auditor Plugin
+      summary: Healthz
+      operationId: healthz_apis_auditor_v1_healthz_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Healthz Apis Auditor V1 Healthz Get
+  /apis/auditor/v2/workspaces/{workspace}/configs:
+    post:
+      tags:
+      - Auditor Configs
+      summary: Create Config
+      description: Create a new audit config.
+      operationId: create_config_apis_auditor_v2_workspaces__workspace__configs_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuditConfigRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditConfig'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Auditor Configs
+      summary: List Configs
+      description: List audit configs in the workspace.
+      operationId: list_configs_apis_auditor_v2_workspaces__workspace__configs_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: -created_at
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Configs Apis Auditor V2 Workspaces  Workspace  Configs
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/auditor/v2/workspaces/{workspace}/configs/{name}:
+    get:
+      tags:
+      - Auditor Configs
+      summary: Get Config
+      description: Get an audit config by name.
+      operationId: get_config_apis_auditor_v2_workspaces__workspace__configs__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditConfig'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Auditor Configs
+      summary: Update Config
+      description: Replace an audit config's contents.
+      operationId: update_config_apis_auditor_v2_workspaces__workspace__configs__name__put
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAuditConfigRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditConfig'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Auditor Configs
+      summary: Delete Config
+      description: Delete an audit config by name.
+      operationId: delete_config_apis_auditor_v2_workspaces__workspace__configs__name__delete
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/auditor/v2/workspaces/{workspace}/targets:
+    post:
+      tags:
+      - Auditor Targets
+      summary: Create Target
+      description: Create a new audit target.
+      operationId: create_target_apis_auditor_v2_workspaces__workspace__targets_post
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuditTargetRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTarget'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - Auditor Targets
+      summary: List Targets
+      description: List audit targets in the workspace.
+      operationId: list_targets_apis_auditor_v2_workspaces__workspace__targets_get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: -created_at
+          title: Sort
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Targets Apis Auditor V2 Workspaces  Workspace  Targets
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /apis/auditor/v2/workspaces/{workspace}/targets/{name}:
+    get:
+      tags:
+      - Auditor Targets
+      summary: Get Target
+      description: Get an audit target by name.
+      operationId: get_target_apis_auditor_v2_workspaces__workspace__targets__name__get
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTarget'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - Auditor Targets
+      summary: Update Target
+      description: Replace an audit target's contents.
+      operationId: update_target_apis_auditor_v2_workspaces__workspace__targets__name__put
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAuditTargetRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTarget'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - Auditor Targets
+      summary: Delete Target
+      description: Delete an audit target by name.
+      operationId: delete_target_apis_auditor_v2_workspaces__workspace__targets__name__delete
+      parameters:
+      - name: workspace
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workspace
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AuditClassConfig:
+      additionalProperties: true
+      type: object
+      title: AuditClassConfig
+      description: Per-class plugin configuration mapping.
+    AuditConfig:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Entity name within the workspace
+          default: ''
+        workspace:
+          type: string
+          pattern: ^[\w\-\+.@:]+$
+          title: Workspace
+          description: Workspace identifier
+        project:
+          title: Project
+          description: The name of the project associated with this entity.
+          type: string
+        description:
+          title: Description
+          description: Config description
+          type: string
+        system:
+          $ref: '#/components/schemas/AuditSystemData'
+        run:
+          $ref: '#/components/schemas/AuditRunData'
+        plugins:
+          $ref: '#/components/schemas/AuditPluginsDataOutput'
+        reporting:
+          $ref: '#/components/schemas/AuditReportData'
+        id:
+          type: string
+          title: Id
+          readOnly: true
+        created_at:
+          title: Created At
+          readOnly: true
+          type: string
+          format: date-time
+        created_by:
+          title: Created By
+          readOnly: true
+          nullable: true
+          type: string
+        updated_at:
+          title: Updated At
+          readOnly: true
+          type: string
+          format: date-time
+        updated_by:
+          title: Updated By
+          readOnly: true
+          nullable: true
+          type: string
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Alias for id for backwards compatibility.
+          readOnly: true
+        parent:
+          title: Parent
+          description: Parent entity ID for nested entities.
+          readOnly: true
+          type: string
+      type: object
+      required:
+      - workspace
+      - id
+      - created_at
+      - created_by
+      - updated_at
+      - updated_by
+      - entity_id
+      - parent
+      title: AuditConfig
+      description: Audit configuration stored in the entity store.
+    AuditModuleConfig:
+      additionalProperties:
+        $ref: '#/components/schemas/AuditClassConfig'
+      type: object
+      title: AuditModuleConfig
+      description: Per-module plugin configuration mapping.
+    AuditPluginsDataInput:
+      properties:
+        model_type:
+          title: Model Type
+          type: string
+        model_name:
+          title: Model Name
+          type: string
+        probe_spec:
+          type: string
+          title: Probe Spec
+          default: all
+        detector_spec:
+          type: string
+          title: Detector Spec
+          default: auto
+        extended_detectors:
+          type: boolean
+          title: Extended Detectors
+          default: false
+        buff_spec:
+          title: Buff Spec
+          type: string
+        buffs_include_original_prompt:
+          type: boolean
+          title: Buffs Include Original Prompt
+          default: false
+        buff_max:
+          title: Buff Max
+          type: string
+        detectors:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Detectors
+        generators:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Generators
+        buffs:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Buffs
+        harnesses:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Harnesses
+        probes:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Probes
+      type: object
+      title: AuditPluginsDataInput
+    AuditPluginsDataOutput:
+      properties:
+        model_type:
+          title: Model Type
+          type: string
+        model_name:
+          title: Model Name
+          type: string
+        probe_spec:
+          type: string
+          title: Probe Spec
+          default: all
+        detector_spec:
+          type: string
+          title: Detector Spec
+          default: auto
+        extended_detectors:
+          type: boolean
+          title: Extended Detectors
+          default: false
+        buff_spec:
+          title: Buff Spec
+          type: string
+        buffs_include_original_prompt:
+          type: boolean
+          title: Buffs Include Original Prompt
+          default: false
+        buff_max:
+          title: Buff Max
+          type: string
+        detectors:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Detectors
+        generators:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Generators
+        buffs:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Buffs
+        harnesses:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Harnesses
+        probes:
+          additionalProperties:
+            anyOf:
+            - $ref: '#/components/schemas/AuditModuleConfig'
+            - $ref: '#/components/schemas/AuditClassConfig'
+          type: object
+          title: Probes
+      type: object
+      title: AuditPluginsDataOutput
+    AuditReportData:
+      properties:
+        report_prefix:
+          type: string
+          title: Report Prefix
+          default: run1
+        taxonomy:
+          title: Taxonomy
+          type: string
+        report_dir:
+          type: string
+          title: Report Dir
+          default: garak_runs
+        show_100_pass_modules:
+          type: boolean
+          title: Show 100 Pass Modules
+          default: true
+      type: object
+      title: AuditReportData
+    AuditRunData:
+      properties:
+        seed:
+          title: Seed
+          type: integer
+        deprefix:
+          type: boolean
+          title: Deprefix
+          default: true
+        eval_threshold:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Eval Threshold
+          default: 0.5
+        generations:
+          type: integer
+          minimum: 1.0
+          title: Generations
+          default: 5
+        probe_tags:
+          title: Probe Tags
+          type: string
+        user_agent:
+          type: string
+          title: User Agent
+          default: garak/{version} (LLM vulnerability scanner https://garak.ai)
+      type: object
+      title: AuditRunData
+    AuditSystemData:
+      properties:
+        verbose:
+          type: integer
+          maximum: 1.0
+          minimum: 0.0
+          title: Verbose
+          default: 0
+        narrow_output:
+          type: boolean
+          title: Narrow Output
+          default: false
+        parallel_requests:
+          type: boolean
+          title: Parallel Requests
+          default: false
+        parallel_attempts:
+          anyOf:
+          - type: boolean
+          - type: integer
+          title: Parallel Attempts
+          default: false
+        lite:
+          type: boolean
+          title: Lite
+          default: true
+        show_z:
+          type: boolean
+          title: Show Z
+          default: false
+        enable_experimental:
+          type: boolean
+          title: Enable Experimental
+          default: false
+      additionalProperties: false
+      type: object
+      title: AuditSystemData
+    AuditTarget:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Entity name within the workspace
+          default: ''
+        workspace:
+          type: string
+          pattern: ^[\w\-\+.@:]+$
+          title: Workspace
+          description: Workspace identifier
+        project:
+          title: Project
+          description: The name of the project associated with this entity.
+          type: string
+        description:
+          title: Description
+          description: Target description
+          type: string
+        type:
+          type: string
+          title: Type
+          description: Target type (e.g., 'nim', 'openai').
+        model:
+          type: string
+          title: Model
+          description: Model identifier.
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+          description: Additional target options.
+        id:
+          type: string
+          title: Id
+          readOnly: true
+        created_at:
+          title: Created At
+          readOnly: true
+          type: string
+          format: date-time
+        created_by:
+          title: Created By
+          readOnly: true
+          nullable: true
+          type: string
+        updated_at:
+          title: Updated At
+          readOnly: true
+          type: string
+          format: date-time
+        updated_by:
+          title: Updated By
+          readOnly: true
+          nullable: true
+          type: string
+        entity_id:
+          type: string
+          title: Entity Id
+          description: Alias for id for backwards compatibility.
+          readOnly: true
+        parent:
+          title: Parent
+          description: Parent entity ID for nested entities.
+          readOnly: true
+          type: string
+      type: object
+      required:
+      - workspace
+      - type
+      - model
+      - id
+      - created_at
+      - created_by
+      - updated_at
+      - updated_by
+      - entity_id
+      - parent
+      title: AuditTarget
+      description: Audit target (model under test) stored in the entity store.
+    CreateAuditConfigRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Unique config name within the workspace.
+        description:
+          title: Description
+          description: Human-readable description.
+          type: string
+        system:
+          $ref: '#/components/schemas/AuditSystemData'
+        run:
+          $ref: '#/components/schemas/AuditRunData'
+        plugins:
+          $ref: '#/components/schemas/AuditPluginsDataInput'
+        reporting:
+          $ref: '#/components/schemas/AuditReportData'
+      type: object
+      required:
+      - name
+      title: CreateAuditConfigRequest
+      description: Request body for ``POST /v2/workspaces/{workspace}/configs``.
+    CreateAuditTargetRequest:
+      properties:
+        name:
+          type: string
+          title: Name
+          description: Unique target name within the workspace.
+        description:
+          title: Description
+          type: string
+        type:
+          type: string
+          title: Type
+          description: Target type (e.g., 'nim', 'openai').
+        model:
+          type: string
+          title: Model
+          description: Model identifier.
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+      type: object
+      required:
+      - name
+      - type
+      - model
+      title: CreateAuditTargetRequest
+      description: Request body for ``POST /v2/workspaces/{workspace}/targets``.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    UpdateAuditConfigRequest:
+      properties:
+        description:
+          title: Description
+          type: string
+        system:
+          $ref: '#/components/schemas/AuditSystemData'
+        run:
+          $ref: '#/components/schemas/AuditRunData'
+        plugins:
+          $ref: '#/components/schemas/AuditPluginsDataInput'
+        reporting:
+          $ref: '#/components/schemas/AuditReportData'
+      type: object
+      title: UpdateAuditConfigRequest
+      description: Request body for ``PUT /v2/workspaces/{workspace}/configs/{name}``.
+    UpdateAuditTargetRequest:
+      properties:
+        description:
+          title: Description
+          type: string
+        type:
+          type: string
+          title: Type
+          description: Target type (e.g., 'nim', 'openai').
+        model:
+          type: string
+          title: Model
+          description: Model identifier.
+        options:
+          additionalProperties: true
+          type: object
+          title: Options
+      type: object
+      required:
+      - type
+      - model
+      title: UpdateAuditTargetRequest
+      description: Request body for ``PUT /v2/workspaces/{workspace}/targets/{name}``.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+          additionalProperties: true
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

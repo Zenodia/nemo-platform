@@ -1,0 +1,291 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Integration tests for the OpenAI chat-completions ingest endpoint."""
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from fastapi.testclient import TestClient
+
+INGEST_URL = "/apis/intake/v2/workspaces/default/ingest/chat-completions"
+SPANS_URL = "/apis/intake/v2/workspaces/default/spans"
+EVALUATION_CONTEXT = {
+    "evaluation_id": "chat-eval",
+    "evaluation_sha": "chat-eval-sha",
+    "evaluation_run_id": "evalrun-chat-001",
+    "dataset_id": "chat-dataset",
+    "dataset_name": "Chat Dataset",
+    "dataset_version": "v1",
+    "test_case_id": "chat-case-001",
+    "metadata": {"source": "chat-completions-test"},
+}
+
+
+def _openai_request(**overrides: Any) -> dict[str, Any]:
+    request = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": "You are a terse calculator."},
+            {"role": "user", "content": "What is 6 times 7?"},
+        ],
+        "temperature": 0.2,
+        "max_tokens": 32,
+    }
+    request.update(overrides)
+    return request
+
+
+def _openai_response(**overrides: Any) -> dict[str, Any]:
+    response = {
+        "id": "chatcmpl-test-abc123",
+        "object": "chat.completion",
+        "created": 1778698885,
+        "model": "gpt-4o-mini-2024-08-06",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "42"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 24,
+            "completion_tokens": 2,
+            "total_tokens": 26,
+            "prompt_tokens_details": {"cached_tokens": 16, "audio_tokens": 0},
+            "completion_tokens_details": {"reasoning_tokens": 0, "audio_tokens": 0},
+        },
+        "system_fingerprint": "fp_abc",
+    }
+    response.update(overrides)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# happy path
+# ---------------------------------------------------------------------------
+
+
+def test_chat_completions_ingest_happy_path(client: TestClient):
+    body = {
+        "request": _openai_request(),
+        "response": _openai_response(),
+        "session_id": "session-happy",
+        "evaluation_context": EVALUATION_CONTEXT,
+        "provider": "openai",
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 201, response.text
+    payload = response.json()
+    assert payload["session_id"] == "session-happy"
+    assert payload["span_id"] == "chatcmpl-test-abc123"
+
+    listed = client.get(
+        SPANS_URL,
+        params={"filter[session_id]": "session-happy", "page_size": 10},
+    )
+    assert listed.status_code == 200, listed.text
+    spans = listed.json()["data"]
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["kind"] == "LLM"
+    assert span["source"] == "chat_completions"
+    assert span["status"] == "success"
+    assert span["name"] == "gpt-4o-mini-2024-08-06"
+    assert span["model"] == "gpt-4o-mini-2024-08-06"
+    assert span["provider"] == "openai"
+    assert span["evaluation_context"] == EVALUATION_CONTEXT
+    assert "evaluation_run_id" not in span
+    assert "raw_attributes" not in span
+    assert span["input_tokens"] == 24
+    assert span["output_tokens"] == 2
+    assert span["total_tokens"] == 26
+    assert span["cached_tokens"] == 16
+    # input/output preserve the producer payload verbatim
+    assert json.loads(span["input"])["messages"][0]["content"] == "You are a terse calculator."
+    assert json.loads(span["output"])["choices"][0]["message"]["content"] == "42"
+
+    filtered = client.get(
+        SPANS_URL,
+        params={"filter[evaluation_run_id]": EVALUATION_CONTEXT["evaluation_run_id"], "page_size": 10},
+    )
+    assert filtered.status_code == 200, filtered.text
+    filtered_spans = filtered.json()["data"]
+    assert len(filtered_spans) == 1
+    assert filtered_spans[0]["span_id"] == "chatcmpl-test-abc123"
+
+
+# ---------------------------------------------------------------------------
+# missing optional metadata
+# ---------------------------------------------------------------------------
+
+
+def test_chat_completions_ingest_handles_missing_usage(client: TestClient):
+    response_body = _openai_response()
+    response_body.pop("usage")
+    response_body.pop("system_fingerprint")
+
+    body = {
+        "request": _openai_request(),
+        "response": response_body,
+        "session_id": "session-no-usage",
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 201, response.text
+
+    listed = client.get(SPANS_URL, params={"filter[session_id]": "session-no-usage"})
+    span = listed.json()["data"][0]
+    assert span["status"] == "success"
+    assert "input_tokens" not in span
+    assert "output_tokens" not in span
+    assert "cost_total_usd" not in span
+    # model still extracted from response.model
+    assert span["model"] == "gpt-4o-mini-2024-08-06"
+
+
+def test_chat_completions_ingest_accepts_run_id_only_evaluation_context(client: TestClient):
+    body = {
+        "request": _openai_request(),
+        "response": _openai_response(id="chatcmpl-run-id-only"),
+        "session_id": "session-run-id-only",
+        "evaluation_context": {"evaluation_run_id": "evalrun-chat-run-only"},
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 201, response.text
+
+    listed = client.get(SPANS_URL, params={"filter[session_id]": "session-run-id-only"})
+    assert listed.status_code == 200, listed.text
+    span = listed.json()["data"][0]
+    assert span["evaluation_context"] == {"evaluation_run_id": "evalrun-chat-run-only", "metadata": {}}
+
+
+def test_chat_completions_ingest_falls_back_when_response_id_missing(client: TestClient):
+    response_body = _openai_response()
+    response_body.pop("id")
+
+    body = {
+        "request": _openai_request(),
+        "response": response_body,
+        "session_id": "session-no-id",
+    }
+    first = client.post(INGEST_URL, json=body)
+    assert first.status_code == 201, first.text
+    first_span_id = first.json()["span_id"]
+    assert first_span_id.startswith("chatcmpl-hash-")
+
+    # Same payload → same fallback id → dedupes
+    second = client.post(INGEST_URL, json=body)
+    assert second.status_code == 201, second.text
+    assert second.json()["span_id"] == first_span_id
+
+
+# ---------------------------------------------------------------------------
+# retry / dedupe
+# ---------------------------------------------------------------------------
+
+
+def test_chat_completions_ingest_dedupes_on_retry(client: TestClient):
+    body = {
+        "request": _openai_request(),
+        "response": _openai_response(),
+        "session_id": "session-retry",
+    }
+    first = client.post(INGEST_URL, json=body)
+    assert first.status_code == 201, first.text
+    second = client.post(INGEST_URL, json=body)
+    assert second.status_code == 201, second.text
+
+    listed = client.get(SPANS_URL, params={"filter[session_id]": "session-retry"})
+    rows = listed.json()["data"]
+    assert len(rows) == 1
+
+
+# ---------------------------------------------------------------------------
+# explicit session grouping
+# ---------------------------------------------------------------------------
+
+
+def test_chat_completions_ingest_groups_by_session_id(client: TestClient):
+    for index, prompt in enumerate(["hi", "hello"]):
+        body = {
+            "request": _openai_request(messages=[{"role": "user", "content": prompt}]),
+            "response": _openai_response(id=f"chatcmpl-turn-{index}"),
+            "session_id": "shared-session",
+        }
+        result = client.post(INGEST_URL, json=body)
+        assert result.status_code == 201, result.text
+
+    listed = client.get(SPANS_URL, params={"filter[session_id]": "shared-session"})
+    spans = listed.json()["data"]
+    assert len(spans) == 2
+    assert {s["span_id"] for s in spans} == {"chatcmpl-turn-0", "chatcmpl-turn-1"}
+    assert all(s["session_id"] == "shared-session" for s in spans)
+
+
+# ---------------------------------------------------------------------------
+# error response
+# ---------------------------------------------------------------------------
+
+
+def test_chat_completions_ingest_marks_error_when_response_contains_error(client: TestClient):
+    # Real OpenAI 4xx errors send just the error envelope — no id, no model, no choices.
+    body = {
+        "request": _openai_request(model="gpt-99"),
+        "response": {
+            "error": {
+                "message": "The model `gpt-99` does not exist or you do not have access to it.",
+                "type": "invalid_request_error",
+                "code": "model_not_found",
+                "param": "model",
+            },
+        },
+        "session_id": "session-error",
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 201, response.text
+
+    listed = client.get(SPANS_URL, params={"filter[session_id]": "session-error"})
+    span = listed.json()["data"][0]
+    assert span["status"] == "error"
+    assert span["error_type"] == "invalid_request_error"
+    assert span["error_message"].startswith("The model `gpt-99` does not exist")
+    # No response.model → falls back to request.model
+    assert span["model"] == "gpt-99"
+
+
+def test_chat_completions_ingest_rejects_response_with_neither_choices_nor_error(client: TestClient):
+    response_body = _openai_response()
+    response_body.pop("choices")
+    body = {
+        "request": _openai_request(),
+        "response": response_body,
+        "session_id": "session-empty",
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 422, response.text
+
+
+def test_chat_completions_ingest_rejects_legacy_context_fields(client: TestClient):
+    for field in ("project", "experiment_id"):
+        body = {
+            "request": _openai_request(),
+            "response": _openai_response(id=f"chatcmpl-reject-{field}"),
+            "session_id": f"session-reject-{field}",
+            field: "legacy-value",
+        }
+        response = client.post(INGEST_URL, json=body)
+        assert response.status_code == 422, response.text
+
+
+def test_chat_completions_ingest_requires_run_id_when_evaluation_context_is_set(client: TestClient):
+    body = {
+        "request": _openai_request(),
+        "response": _openai_response(id="chatcmpl-invalid-eval-context"),
+        "session_id": "session-invalid-eval-context",
+        "evaluation_context": {"evaluation_id": "chat-eval"},
+    }
+    response = client.post(INGEST_URL, json=body)
+    assert response.status_code == 422, response.text

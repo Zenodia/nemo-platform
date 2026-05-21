@@ -1,0 +1,79 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Dial } from '@nemo/common/src/components/Dial';
+import { Flex, Table, Tooltip } from '@nvidia/foundations-react-core';
+import { tooltipClassName } from '@studio/styles/common';
+import { Info } from 'lucide-react';
+import { FC } from 'react';
+
+interface ScoreTableProps {
+  scores: {
+    name: string;
+    value: number;
+    displayValue?: string;
+    description?: string;
+  }[];
+  color: string;
+}
+export const ScoreTable: FC<ScoreTableProps> = ({ scores, color }) => {
+  return (
+    <Table
+      data-testid="score-table"
+      className="bg-transparent w-full"
+      layout="fixed"
+      align="left"
+      columns={[
+        { children: 'Metric' },
+        {
+          children: 'Score',
+          attributes: {
+            TableHeaderCell: {
+              style: { textAlign: 'right', paddingRight: '20px', width: '90px' },
+            },
+          },
+        },
+      ]}
+      rows={scores.map((score) => ({
+        cells: [
+          {
+            children: (
+              <Flex gap="density-sm" align="center" className="overflow-visible">
+                <span className="truncate">{score.name}</span>
+                {score.description && (
+                  <Tooltip
+                    slotContent={score.description}
+                    side="bottom"
+                    className={tooltipClassName}
+                  >
+                    <Info className="inline shrink-0" />
+                  </Tooltip>
+                )}
+              </Flex>
+            ),
+            attributes: {
+              TableDataCell: {
+                className: 'overflow-visible',
+              },
+            },
+          },
+          {
+            children: (
+              <Dial
+                value={(score.value / 10) * 100}
+                displayValue={score.displayValue || score.value.toFixed(1)}
+                color={color}
+                size="s"
+              />
+            ),
+            attributes: {
+              TableDataCell: {
+                style: { width: '0px' },
+              },
+            },
+          },
+        ],
+      }))}
+    />
+  );
+};

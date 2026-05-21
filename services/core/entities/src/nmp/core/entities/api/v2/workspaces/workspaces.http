@@ -1,0 +1,33 @@
+// Example HTTP calls for the /v2/workspaces API:
+
+@base_url = http://localhost:8001
+
+### Create a workspace
+POST {{base_url}}/v2/workspaces
+Content-Type: application/json
+
+{
+  "id": "ml-team",
+  "description": "Machine Learning Team workspace"
+}
+
+### List all workspaces
+GET {{base_url}}/v2/workspaces
+
+### List workspaces with search
+GET {{base_url}}/v2/workspaces?search={"id":{"$like":"ml"}}
+
+### Get a specific workspace
+GET {{base_url}}/v2/workspaces/ml-team
+
+### Update a workspace
+PUT {{base_url}}/v2/workspaces/ml-team
+Content-Type: application/json
+
+{
+  "description": "Updated description"
+}
+
+### Delete a workspace
+DELETE {{base_url}}/v2/workspaces/ml-team
+

@@ -1,0 +1,26 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+import { extractLanguage } from '@nemo/common/src/components/MarkdownContent/utils';
+import { isCodeSnippetLanguage } from '@nemo/common/src/utils/codeSnippet';
+import { CodeSnippet } from '@nvidia/foundations-react-core';
+import type { ComponentProps, FC } from 'react';
+import { type ExtraProps } from 'react-markdown';
+
+type CodeBlockProps = ComponentProps<'code'> & ExtraProps;
+
+export const CodeBlock: FC<CodeBlockProps> = ({ className, children }) => {
+  const isFenced = className?.includes('language-') ?? false;
+  const extractedLanguage = extractLanguage(className);
+  const language =
+    extractedLanguage && isCodeSnippetLanguage(extractedLanguage) ? extractedLanguage : 'markdown';
+
+  return (
+    <CodeSnippet
+      value={String(children).replace(/\n$/, '')}
+      language={language}
+      kind={isFenced ? 'block' : 'inline'}
+      className={isFenced ? 'mb-density-md' : undefined}
+    />
+  );
+};

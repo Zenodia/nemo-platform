@@ -1,0 +1,15 @@
+/* SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* ─── Modern-tour headless — hide built-in tooltip, keep spotlight ────────── */
+
+/* Hide the default tooltip; we render our own KUI Modal */
+.framer-tour-tooltip {
+  display: none !important;
+}
+
+/* Theme the spotlight overlay */
+:root {
+  --tour-overlay: var(--background-color-surface-blanket);
+  --tour-primary: var(--border-color-interaction-primary-base);
+}

@@ -1,0 +1,213 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+"""Tests for AuditConfig CRUD route handlers.
+
+Uses FastAPI's TestClient with dependency_overrides to mock the entity client.
+The router is mounted at the same prefix the platform mounts in production
+(``/apis/auditor/v2/workspaces/{workspace}``), so the URLs in these tests
+match what the CLI actually hits.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from nemo_auditor.api.v2 import configs as configs_router_module
+from nemo_auditor.entities import AuditConfig
+from nemo_platform_plugin.entity_client import (
+    NemoEntityConflictError,
+    NemoEntityNotFoundError,
+    NemoPaginationInfo,
+    get_entity_client,
+)
+
+NOW = datetime.now(timezone.utc)
+
+
+def _make_config(name: str = "cfg-1", workspace: str = "default", **fields) -> AuditConfig:
+    """Return a populated AuditConfig (simulates entity-store output)."""
+    cfg = AuditConfig(name=name, workspace=workspace, **fields)
+    cfg._id = f"auditor-audit-config-{name}-id"
+    cfg._created_at = NOW
+    cfg._updated_at = NOW
+    return cfg
+
+
+def _list_response(items):
+    resp = MagicMock()
+    resp.data = items
+    resp.pagination = NemoPaginationInfo(
+        page=1,
+        page_size=20,
+        current_page_size=len(items),
+        total_pages=1,
+        total_results=len(items),
+    )
+    return resp
+
+
+@pytest.fixture
+def mock_entity_client() -> AsyncMock:
+    return AsyncMock()
+
+
+@pytest.fixture
+def test_app(mock_entity_client: AsyncMock) -> FastAPI:
+    app = FastAPI()
+    app.include_router(
+        configs_router_module.router,
+        prefix="/apis/auditor/v2/workspaces/{workspace}",
+    )
+    app.dependency_overrides[get_entity_client] = lambda: mock_entity_client
+    return app
+
+
+@pytest.fixture
+def client(test_app: FastAPI) -> TestClient:
+    return TestClient(test_app, raise_server_exceptions=False)
+
+
+class TestCreateConfig:
+    def test_returns_201_with_flat_entity_shape(self, client, mock_entity_client) -> None:
+        saved = _make_config("cfg-1", description="hello")
+        mock_entity_client.create = AsyncMock(return_value=saved)
+
+        resp = client.post(
+            "/apis/auditor/v2/workspaces/default/configs",
+            json={"name": "cfg-1", "description": "hello"},
+        )
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert body["name"] == "cfg-1"
+        assert body["workspace"] == "default"
+        assert body["description"] == "hello"
+        assert body["id"] == "auditor-audit-config-cfg-1-id"
+
+    def test_constructs_audit_config_with_path_workspace(self, client, mock_entity_client) -> None:
+        mock_entity_client.create = AsyncMock(return_value=_make_config("cfg-1", workspace="prod"))
+
+        resp = client.post(
+            "/apis/auditor/v2/workspaces/prod/configs",
+            json={"name": "cfg-1"},
+        )
+        assert resp.status_code == 201, resp.text
+        sent = mock_entity_client.create.await_args.args[0]
+        assert isinstance(sent, AuditConfig)
+        assert sent.name == "cfg-1"
+        assert sent.workspace == "prod"
+
+    def test_missing_required_field_returns_422(self, client) -> None:
+        # name is required by CreateAuditConfigRequest
+        resp = client.post("/apis/auditor/v2/workspaces/default/configs", json={})
+        assert resp.status_code == 422
+        assert any(e["loc"][-1] == "name" for e in resp.json()["detail"])
+
+    def test_out_of_range_eval_threshold_returns_422(self, client) -> None:
+        resp = client.post(
+            "/apis/auditor/v2/workspaces/default/configs",
+            json={"name": "cfg-1", "run": {"eval_threshold": 2.5}},
+        )
+        assert resp.status_code == 422
+        locs = [tuple(e["loc"]) for e in resp.json()["detail"]]
+        assert any("eval_threshold" in loc for loc in locs)
+
+    def test_extra_forbidden_field_returns_422(self, client) -> None:
+        resp = client.post(
+            "/apis/auditor/v2/workspaces/default/configs",
+            json={"name": "cfg-1", "system": {"unknown": "x"}},
+        )
+        assert resp.status_code == 422
+        locs = [tuple(e["loc"]) for e in resp.json()["detail"]]
+        assert any("unknown" in loc for loc in locs)
+
+    def test_conflict_returns_409(self, client, mock_entity_client) -> None:
+        mock_entity_client.create = AsyncMock(side_effect=NemoEntityConflictError("exists"))
+        resp = client.post(
+            "/apis/auditor/v2/workspaces/default/configs",
+            json={"name": "dup"},
+        )
+        assert resp.status_code == 409
+        assert "dup" in resp.json()["detail"]
+
+
+class TestGetConfig:
+    def test_returns_200_with_entity(self, client, mock_entity_client) -> None:
+        mock_entity_client.get = AsyncMock(return_value=_make_config("cfg-1"))
+        resp = client.get("/apis/auditor/v2/workspaces/default/configs/cfg-1")
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "cfg-1"
+
+    def test_404_when_missing(self, client, mock_entity_client) -> None:
+        mock_entity_client.get = AsyncMock(side_effect=NemoEntityNotFoundError("nope"))
+        resp = client.get("/apis/auditor/v2/workspaces/default/configs/missing")
+        assert resp.status_code == 404
+
+
+class TestListConfigs:
+    def test_returns_data_and_pagination(self, client, mock_entity_client) -> None:
+        mock_entity_client.list = AsyncMock(return_value=_list_response([_make_config("a"), _make_config("b")]))
+        resp = client.get("/apis/auditor/v2/workspaces/default/configs")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [c["name"] for c in body["data"]] == ["a", "b"]
+        assert body["pagination"]["total_results"] == 2
+
+    def test_forwards_pagination_params(self, client, mock_entity_client) -> None:
+        mock_entity_client.list = AsyncMock(return_value=_list_response([]))
+        resp = client.get("/apis/auditor/v2/workspaces/default/configs?page=3&page_size=5&sort=name")
+        assert resp.status_code == 200
+        kwargs = mock_entity_client.list.await_args.kwargs
+        assert kwargs["page"] == 3
+        assert kwargs["page_size"] == 5
+        assert kwargs["sort"] == "name"
+
+
+class TestUpdateConfig:
+    def test_replaces_fields_and_returns_200(self, client, mock_entity_client) -> None:
+        existing = _make_config("cfg-1", description="old")
+        mock_entity_client.get = AsyncMock(return_value=existing)
+        mock_entity_client.update = AsyncMock(side_effect=lambda c: c)
+
+        resp = client.put(
+            "/apis/auditor/v2/workspaces/default/configs/cfg-1",
+            json={"description": "new"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["description"] == "new"
+        sent = mock_entity_client.update.await_args.args[0]
+        assert sent.description == "new"
+        assert sent.name == "cfg-1"
+
+    def test_404_when_missing(self, client, mock_entity_client) -> None:
+        mock_entity_client.get = AsyncMock(side_effect=NemoEntityNotFoundError("nope"))
+        resp = client.put(
+            "/apis/auditor/v2/workspaces/default/configs/missing",
+            json={"description": "new"},
+        )
+        assert resp.status_code == 404
+
+    def test_invalid_payload_returns_422(self, client, mock_entity_client) -> None:
+        mock_entity_client.get = AsyncMock(return_value=_make_config("cfg-1"))
+        resp = client.put(
+            "/apis/auditor/v2/workspaces/default/configs/cfg-1",
+            json={"run": {"generations": 0}},
+        )
+        assert resp.status_code == 422
+
+
+class TestDeleteConfig:
+    def test_returns_204(self, client, mock_entity_client) -> None:
+        mock_entity_client.delete = AsyncMock(return_value=None)
+        resp = client.delete("/apis/auditor/v2/workspaces/default/configs/cfg-1")
+        assert resp.status_code == 204
+        assert resp.content == b""
+
+    def test_404_when_missing(self, client, mock_entity_client) -> None:
+        mock_entity_client.delete = AsyncMock(side_effect=NemoEntityNotFoundError("nope"))
+        resp = client.delete("/apis/auditor/v2/workspaces/default/configs/missing")
+        assert resp.status_code == 404

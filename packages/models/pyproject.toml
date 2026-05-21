@@ -1,0 +1,37 @@
+[project]
+name = "models"
+version = "0.0.0"
+description = "Extended ModelsResource with high-level helper methods"
+readme = "README.md"
+authors = [{ name = "NVIDIA", email = "nemo@nvidia.com" }]
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "nemo-platform-sdk",
+  "openai",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/models"]
+
+[dependency-groups]
+dev = []
+
+[tool.vendor-package]
+package = "models"
+package_root = "packages/models"
+target_sdk_module = "models"
+included_paths = [
+  "**/*.py",
+]
+vendor_tests = false
+
+# Resource replacements: rewrite imports in _client.py to use extended classes
+# Note: models has no subresources (unlike filesets), so only .resources.models is needed
+[[tool.vendor-package.replaces]]
+class_names = ["ModelsResource", "AsyncModelsResource"]
+original = [".resources.models", ".resources.models.models"]
+replacement = ".models"

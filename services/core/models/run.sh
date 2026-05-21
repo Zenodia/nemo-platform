@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+
+# Port for this instance
+PORT=${PORT:-8002}
+
+export NMP_CONFIG_FILE_PATH=${ROOT_DIR}/packages/nmp_platform/config/local.yaml
+export DATABASE_DIALECT=sqlite
+export DATABASE_PATH=$HOME/.local/share/nemo/nmp-platform.db
+export UVICORN_RELOAD=true
+
+# Override URLs to point to this instance
+# Use localhost (not 0.0.0.0) for client connections
+# Note: Platform config uses NMP_ prefix (see config/base.py)
+export NMP_BASE_URL="http://localhost:${PORT}"
+export NMP_MODELS_URL="http://localhost:${PORT}"
+export NMP_SECRETS_URL="http://localhost:${PORT}"
+export NMP_FILES_URL="http://localhost:${PORT}"
+export NMP_ENTITYSTORE_URL="http://localhost:${PORT}"
+
+# Debug: print the URLs being used
+echo "=== Platform URLs ==="
+echo "BASE_URL: ${NMP_BASE_URL}"
+echo "MODELS_URL: ${NMP_MODELS_URL}"
+echo "===================="
+
+uv run nemo services run \
+	--services entities,secrets,files,models,inference-gateway \
+	--controllers models \
+	--host=0.0.0.0 \
+	--port=${PORT}
