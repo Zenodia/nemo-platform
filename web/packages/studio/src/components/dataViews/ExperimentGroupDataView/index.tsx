@@ -20,10 +20,12 @@ import type {
 } from '@nemo/sdk/generated/platform/schema';
 import { Text, Tooltip } from '@nvidia/foundations-react-core';
 import { useWorkspaceFromPath } from '@studio/hooks/useWorkspaceFromPath';
+import { getExperimentDetailRoute } from '@studio/routes/utils';
 import { tooltipClassName } from '@studio/styles/common';
 import { keepPreviousData } from '@tanstack/react-query';
 import { Columns3 } from 'lucide-react';
 import { type ComponentProps, type FC, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export type ExperimentRow = ExperimentResponse & { id: string };
 
@@ -49,6 +51,7 @@ export const ExperimentGroupDataView: FC<ExperimentGroupDataViewProps> = ({
   experimentGroupName,
 }) => {
   const workspace = useWorkspaceFromPath();
+  const navigate = useNavigate();
   const {
     data: group,
     isLoading: isGroupLoading,
@@ -231,6 +234,9 @@ export const ExperimentGroupDataView: FC<ExperimentGroupDataViewProps> = ({
       dataViewState={dataViewState}
       makeColumns={makeColumns}
       searchField="name"
+      onRowClick={(row) =>
+        navigate(getExperimentDetailRoute(workspace, experimentGroupName, row.name))
+      }
       toolbarSlotEnd={
         <EditColumnsMenu
           kind="secondary"
