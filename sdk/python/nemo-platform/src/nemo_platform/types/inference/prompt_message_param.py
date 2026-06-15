@@ -17,31 +17,26 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Required, TypedDict
 
-from ..shared_params.model_metadata_content import ModelMetadataContent
-from ..shared_params.dataset_metadata_content import DatasetMetadataContent
+from .prompt_message_role import PromptMessageRole
 
-__all__ = ["FilesetMetadataParam"]
+__all__ = ["PromptMessageParam"]
 
 
-class FilesetMetadataParam(TypedDict, total=False):
-    """Tagged metadata container - the key indicates the type.
+class PromptMessageParam(TypedDict, total=False):
+    """A single templated message in a chat prompt.
 
-    Example:
-        metadata = FilesetMetadata(
-            dataset=DatasetMetadataContent(
-                schema={"columns": ["id", "name"]},
-            )
-        )
+    ``content`` is a Jinja2 template body that may reference the prompt's
+    declared ``input_variables`` (e.g. ``{{ topic }}``).
     """
 
-    dataset: DatasetMetadataContent
-    """Content for dataset-type filesets."""
+    content: Required[str]
+    """Templated message content. May contain template variables."""
 
-    model: ModelMetadataContent
-    """Content for model-type filesets.
+    role: Required[PromptMessageRole]
+    """Role of a message author in a chat prompt.
 
-    Contains tool calling configuration that is merged into the ModelSpec during
-    checkpoint analysis.
+    Follows the OpenAI chat schema the Inference Gateway speaks
+    (`/v1/chat/completions`).
     """

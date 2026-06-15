@@ -19,29 +19,29 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from ..shared_params.model_metadata_content import ModelMetadataContent
-from ..shared_params.dataset_metadata_content import DatasetMetadataContent
+from .prompt_sort import PromptSort
+from .prompt_filter_param import PromptFilterParam
 
-__all__ = ["FilesetMetadataParam"]
+__all__ = ["PromptListParams"]
 
 
-class FilesetMetadataParam(TypedDict, total=False):
-    """Tagged metadata container - the key indicates the type.
+class PromptListParams(TypedDict, total=False):
+    workspace: str
 
-    Example:
-        metadata = FilesetMetadata(
-            dataset=DatasetMetadataContent(
-                schema={"columns": ["id", "name"]},
-            )
-        )
+    filter: PromptFilterParam
+    """
+    Filter prompts by workspace, project, name, description, created_at, and
+    updated_at.
     """
 
-    dataset: DatasetMetadataContent
-    """Content for dataset-type filesets."""
+    page: int
+    """Page number."""
 
-    model: ModelMetadataContent
-    """Content for model-type filesets.
+    page_size: int
+    """Page size."""
 
-    Contains tool calling configuration that is merged into the ModelSpec during
-    checkpoint analysis.
+    sort: PromptSort
+    """The field to sort by.
+
+    To sort in decreasing order, use `-` in front of the field name.
     """

@@ -19,29 +19,28 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from ..shared_params.model_metadata_content import ModelMetadataContent
-from ..shared_params.dataset_metadata_content import DatasetMetadataContent
+from ..shared_params.datetime_filter import DatetimeFilter
 
-__all__ = ["FilesetMetadataParam"]
+__all__ = ["PromptFilterParam"]
 
 
-class FilesetMetadataParam(TypedDict, total=False):
-    """Tagged metadata container - the key indicates the type.
+class PromptFilterParam(TypedDict, total=False):
+    """Filter for Prompt queries."""
 
-    Example:
-        metadata = FilesetMetadata(
-            dataset=DatasetMetadataContent(
-                schema={"columns": ["id", "name"]},
-            )
-        )
-    """
+    created_at: DatetimeFilter
+    """Filter by creation date."""
 
-    dataset: DatasetMetadataContent
-    """Content for dataset-type filesets."""
+    description: str
+    """Filter by description."""
 
-    model: ModelMetadataContent
-    """Content for model-type filesets.
+    name: str
+    """Filter by name."""
 
-    Contains tool calling configuration that is merged into the ModelSpec during
-    checkpoint analysis.
-    """
+    project: str
+    """Filter by project URN."""
+
+    updated_at: DatetimeFilter
+    """Filter by update date."""
+
+    workspace: str
+    """Filter by workspace."""

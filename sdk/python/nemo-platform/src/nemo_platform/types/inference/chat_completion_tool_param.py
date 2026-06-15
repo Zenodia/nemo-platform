@@ -17,31 +17,22 @@
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
-from ..shared_params.model_metadata_content import ModelMetadataContent
-from ..shared_params.dataset_metadata_content import DatasetMetadataContent
+from .function_definition_param import FunctionDefinitionParam
 
-__all__ = ["FilesetMetadataParam"]
+__all__ = ["ChatCompletionToolParam"]
 
 
-class FilesetMetadataParam(TypedDict, total=False):
-    """Tagged metadata container - the key indicates the type.
+class ChatCompletionToolParam(TypedDict, total=False):
+    """An OpenAI-compatible tool definition (currently always a function tool)."""
 
-    Example:
-        metadata = FilesetMetadata(
-            dataset=DatasetMetadataContent(
-                schema={"columns": ["id", "name"]},
-            )
-        )
+    function: Required[FunctionDefinitionParam]
+    """An OpenAI-compatible function definition for tool calling.
+
+    Mirrors the `function` object the Inference Gateway forwards to
+    OpenAI-compatible backends.
     """
 
-    dataset: DatasetMetadataContent
-    """Content for dataset-type filesets."""
-
-    model: ModelMetadataContent
-    """Content for model-type filesets.
-
-    Contains tool calling configuration that is merged into the ModelSpec during
-    checkpoint analysis.
-    """
+    type: Required[Literal["function"]]
+    """The type of the tool. Currently only 'function' is supported."""
