@@ -16,6 +16,7 @@ import yaml
 
 _KNOWN_WORKFLOW_TYPES = frozenset(
     {
+        "claude_code_agent",
         "codex_agent",
         "cursor_agent",
         "react_agent",
