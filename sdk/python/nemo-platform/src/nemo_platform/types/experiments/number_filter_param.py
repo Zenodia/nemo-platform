@@ -17,23 +17,25 @@
 
 from __future__ import annotations
 
-from typing import Iterable
-from typing_extensions import Required, TypedDict
+from typing_extensions import Annotated, TypedDict
 
-from .captured_chat_message_param import CapturedChatMessageParam
+from ..._utils import PropertyInfo
 
-__all__ = ["CapturedChatCompletionsRequestParam"]
+__all__ = ["NumberFilterParam"]
 
 
-class CapturedChatCompletionsRequestParam(  # type: ignore[call-arg]
-    TypedDict,
-    total=False,
-    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
-):
-    """Flexible captured chat-completions request."""
+class NumberFilterParam(TypedDict, total=False):
+    eq: Annotated[float, PropertyInfo(alias="$eq")]
+    """Filter for results equal to this value."""
 
-    messages: Required[Iterable[CapturedChatMessageParam]]
-    """Messages comprising the conversation."""
+    gt: Annotated[float, PropertyInfo(alias="$gt")]
+    """Filter for results greater than this value."""
 
-    model: Required[str]
-    """The model identifier used for this request."""
+    gte: Annotated[float, PropertyInfo(alias="$gte")]
+    """Filter for results greater than or equal to this value."""
+
+    lt: Annotated[float, PropertyInfo(alias="$lt")]
+    """Filter for results less than this value."""
+
+    lte: Annotated[float, PropertyInfo(alias="$lte")]
+    """Filter for results less than or equal to this value."""
