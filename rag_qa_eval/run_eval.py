@@ -52,6 +52,13 @@ NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 #    model="meta/llama-3.1-8b-instruct",
 
 
+# WARNING: do NOT set these to a reasoning model (e.g. nemotron-super,
+# nemotron-nano-omni, or any model whose API name contains "reasoning").
+# Reasoning models return "content": null with output only in "reasoning_content".
+# The Evaluator SDK reads "content" and gets None, so BLEUMetric raises
+# "missing candidate field" and LLM judges fail to parse their scores.
+# The real error is then masked by an asyncio.TaskGroup cancellation cascade
+# that shows the misleading "Operation cancelled" message instead.
 GEN_MODEL = os.getenv("RAG_GEN_MODEL", "meta/llama-3.1-8b-instruct")
 JUDGE_MODEL = os.getenv("RAG_JUDGE_MODEL", "meta/llama-3.1-8b-instruct")
 API_KEY_SECRET = "NVIDIA_API_KEY"  # resolved from the env var of the same name
